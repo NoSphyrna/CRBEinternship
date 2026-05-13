@@ -1,5 +1,5 @@
 # ============================================================================ #
-# =========================== Test file for taxinfo ========================== #
+# ======================= Script to plot trophic abundance =================== #
 # ============================================================================ #
 
 # ============== Installation of packages =================== #
@@ -17,13 +17,34 @@
 # ============== Libraries ============ #
 library(taxinfo)
 library(MiscMetabar)
-library(fungaltraits)
 library(stringr)
 
 # ============== Set Workspace accordingly ======== #
-# Modify here where tou want to work
-getwd()
-setwd("Database/")
+# Get input directory and output directory :
+
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) != 2) {
+  stop(
+    "Usage : Rscript plot_trophic_abundance.R INPUT_OTU_DIRECTORY INPUT_FUNTRAITS_DIRECTORY OUTPUT_DIRECTORY"
+  )
+}
+# INPUT_DIR <- "~/Dext2/BioInfoMatser/HAU802_BILL/ONT_sequencing/Analyses/SNP/Isec/"
+INPUT_OTU <- args[1]
+INPUT_TRAITS <- args[2]
+OUTPUT_DIR <- args[3]
+
+if (!dir.exists(INPUT_OTU)) {
+  stop("[R] : Input OTU folder doesn't exist")
+}
+
+if (!dir.exists(INPUT_TRAITS)) {
+  stop("[R] : Input traits folder doesn't exist")
+}
+
+if (!dir.exists(OUTPUT_DIR)) {
+  dir.create(OUTPUT_DIR, recursive = TRUE)
+}
 
 # ============= Utility Functoins ==================#
 
@@ -199,11 +220,28 @@ plot_trophic_abundance_per_sample <- function(
   return(p)
 }
 
-# ================ Workflow for assigning traits on OTUs from samples ================= #
+# =============== Workflow for assigning traits on OTUs from samples ================ #
 
-# A test on Tedersoo full sintax
+INPUT_OTU <- "cleaned_OTU_tables"
+INPUT_TRAITS <- "traitsTable"
+OUTPUT_DIR <- "plot_taxInfo_traits"
+method <- "Tedersoo"
+section <- "ITS_full"
+cluster <- "vsearch"
+
+
+# Get the OTU_table
 OTU_table <- read.csv(
-  "OTU_table_Tedersoo_ITS_full_sintax_fungi_clean.csv",
+  paste0(
+    INPUT_DIR,
+    "/OTU_table_",
+    method,
+    "_",
+    section,
+    "_",
+    cluster,
+    "_fungi_clean.csv"
+  ),
   header = TRUE,
   sep = ";"
 )
@@ -212,27 +250,15 @@ OTU_table <- read.csv(
 OTU_table <- expand_taxnames(OTU_table)
 
 # Then get a phyloseq object to use the taxInfo functions
-data_sintax <- phyloseq_from_table(OTU_table)
+data <- phyloseq_from_table(OTU_table)
 
 # Check names according to Taxref (210) conventions
-data_sintax_clean <- gna_verifier_pq(data_sintax, data_sources = 210)
-
-# Tests for the modified taxa by the verifier
-taxa_ps <- as.data.frame(tax_table(data_sintax_clean))
-mismatches <- taxa_ps |>
-  filter(!is.na(Genus) & !is.na(genusEpithet)) |>
-  filter(Genus != genusEpithet) |>
-  group_by(Genus, genusEpithet) |> #, Species, currentCanonicalSimple) |>
-  summarise(number_mismatch = n(), .groups = "drop") |>
-  arrange(desc(number_mismatch))
-
-print.data.frame(mismatches)
-sum(mismatches$number_mismatch)
+data_clean <- gna_verifier_pq(data, data_sources = 210)
 
 # Get traits from the enhanced fungalTraits and funGuild
-data_sintax_traits <- fungal_traits_guilds(
-  data_sintax_clean,
-  fungal_traits_file = "traitsTable/FUNGALT_DB_MROY041125.csv",
+data_traits <- fungal_traits_guilds(
+  data_clean,
+  fungal_traits_file = paste0(INPUT_TRAITS, "/FUNGALT_DB_MROY041125.csv"),
   ft_taxonomic_rank = "genusEpithet",
   ft_csv_rank = "GENUS",
   ft_sep = ";",
@@ -281,28 +307,37 @@ data_sintax_traits <- fungal_traits_guilds(
 # 3 OTU2 Sample1       0.0   Fungi      Basidiomycota
 # 6 OTU3 Sample2       0.0   Fungi      Glomeromycota
 
-table_sintax_traits <- psmelt(data_sintax_traits)
+table_traits <- psmelt(data_traits)
 
 # Reduce lifestyle to the 3 categories of trophic mode (Saprotroph, Pathotroph, Symbiotroph)
 # To match the match FungalTraits with FunGuild
 
-table_sintax_traits <- add_trophicMode_ft(table_sintax_traits)
+table_traits <- add_trophicMode_ft(table_traits)
 
 # If there are "Other" in categories, you can check which lifestyles didn't match with the following :
 
-# other_values <- unique(table_sintax_traits$ft_Secondary_lifestyle[
-#   ft_to_trophic_mode(table_sintax_traits$ft_Secondary_lifestyle) == "Other"
+# other_values <- unique(table_traits$ft_Secondary_lifestyle[
+#   ft_to_trophic_mode(table_traits$ft_Secondary_lifestyle) == "Other"
 # ])
 # print(sort(other_values))
 #
 # Plot trophic abundance graph with fungatraits assignments
 plot_trophic_abundance_per_sample(
-  table_sintax_traits,
+  table_traits,
   "ft_trophicMode",
   "FungalTraits enhanced"
 )
 ggsave(
-  "plot_tests/trophic_abundance_Tedersoo_ITS_full_sintax_FungalTraits_enhanced.png",
+  paste0(
+    OUTPUT_DIR,
+    "/trophic_abundance_",
+    method,
+    "_",
+    section,
+    "_",
+    cluster,
+    "_FungalTraits_enhanced.png"
+  ),
   width = 20,
   height = 10
 )
@@ -310,130 +345,21 @@ ggsave(
 
 # Plot trophic abundance for funGuild assignments
 plot_trophic_abundance_per_sample(
-  table_sintax_traits,
+  table_traits,
   "fg_trophicMode",
   "FunGuild"
 )
 ggsave(
-  "plot_tests/trophic_abundance_Tedersoo_ITS_full_sintax_FunGuild.png",
+  paste0(
+    OUTPUT_DIR,
+    "/trophic_abundance_",
+    method,
+    "_",
+    section,
+    "_",
+    cluster,
+    "_FunGuild.png"
+  ),
   width = 20,
   height = 10
 )
-
-
-# ==================== Tests and unused functions ========================== #
-
-# == Test for the table obtain from the fungaltrait r package == #
-# Get traits from the package fungalTraits and funGuild
-# Get the Fungal traits csv file
-
-# fun_traits <- fungal_traits()
-# ft_col_names <- colnames(fun_traits)
-# write.csv(fun_traits, file = "traitsTable/fungalTraits.csv")
-
-# data_sintax_traits <- fungal_traits_guilds(
-#   data_sintax_clean,
-#   fungal_traits_file = "traitsTable/fungalTraits.csv",
-#   ft_taxonomic_rank = "genusEpithet",
-#   ft_csv_rank = "Genus",
-#   ft_sep = ",",
-#   ft_col_prefix = "ft_",
-#   ft_csv_cols_select = ft_col_names,
-#   fg_tax_levels = c(
-#     "Kingdom",
-#     "Phylum",
-#     "Class",
-#     "Order",
-#     "Family",
-#     "Genus",
-#     "Species"
-#   ),
-#   fg_col_prefix = "fg_",
-#   db_url = "http://www.stbates.org/funguild_db_2.php",
-#   add_consensus = TRUE,
-#   consensus_col_prefix = "cons_",
-#   add_to_phyloseq = TRUE,
-#   verbose = TRUE
-# )
-
-# table_sintax_traits <- psmelt(data_sintax_traits)
-
-# # Plot trophic abundance graph with fungatraits assignments
-# plot_trophic_abundance_per_sample(
-#   table_sintax_traits,
-#   "ft_trophic_mode_fg",
-#   "FungalTraits R Package"
-# )
-# ggsave(
-#   "plot_tests/trophic_abundance_GetPlage_ITS1_sintax_FungalTraits_package.png",
-#   width = 20,
-#   height = 10
-# )
-# test_tax <- tax_table(data_sintax_traits)
-# tax_table_sintax_traits <- as.data.frame(tax_table(data_sintax_traits))
-# unique(tax_table_sintax_traits$ft_trait_fg)
-# unique(tax_table_sintax_traits$ft_guild_fg)
-# unique(tax_table_sintax_traits$ft_trophic_mode_fg)
-
-unique(table_sintax_traits$ft_primary_lifestyle)
-
-unique(table_sintax_traits$fg_trait)
-unique(table_sintax_traits$fg_guild)
-unique(table_sintax_traits$fg_trophicMode)
-
-#
-# Test the tax bar function (not useful for trophic per sample)
-# tax_bar_pq(data_sintax_traits, taxa = "ft_trophic_mode_fg")
-
-# ======================== Examples =========================== #
-# df <- data.frame(
-#   OTU = c("OTU1", "OTU2", "OTU3", "OTU4"),
-#   Sample1 = c(0.1, 0, 0.3, 0.6),
-#   Sample2 = c(0, 0.6, 0, 0.4),
-#   Kingdom = c("Fungi", "Fungi", "Fungi", "Fungi"),
-#   Phylum = c(
-#     "Ascomycota",
-#     "Basidiomycota",
-#     "Glomeromycota",
-#     "Blastocladiomycota"
-#   )
-# )
-# df
-# #    OTU Sample1 Sample2 Kingdom             Phylum
-# # 1 OTU1     0.1     0.0   Fungi         Ascomycota
-# # 2 OTU2     0.0     0.6   Fungi      Basidiomycota
-# # 3 OTU3     0.3     0.0   Fungi      Glomeromycota
-# # 4 OTU4     0.6     0.4   Fungi Blastocladiomycota
-# otu_matrix <- df |>
-#   select(OTU, where(is.numeric)) |>
-#   tibble::column_to_rownames("OTU") |>
-#   as.matrix()
-#
-# ## here OTU names are the row so we have to set taxa_are_rows to TRUE
-# OTU <- otu_table(otu_matrix, taxa_are_rows = TRUE)
-#
-# ## Get the Taxa matrix
-# tax_matrix <- df |>
-#   select(OTU, Kingdom, Phylum) |>
-#   tibble::column_to_rownames("OTU") |>
-#   as.matrix()
-#
-# TAX <- tax_table(tax_matrix)
-#
-# ps <- phyloseq(OTU, TAX)
-# ps
-# # phyloseq-class experiment-level object
-# # otu_table()   OTU Table:         [ 4 taxa and 2 samples ]
-# # tax_table()   Taxonomy Table:    [ 4 taxa by 2 taxonomic ranks ]
-# df_melt <- psmelt(ps)
-# df_melt
-# #    OTU  Sample Abundance Kingdom             Phylum
-# # 4 OTU2 Sample2       0.6   Fungi      Basidiomycota
-# # 7 OTU4 Sample1       0.6   Fungi Blastocladiomycota
-# # 8 OTU4 Sample2       0.4   Fungi Blastocladiomycota
-# # 5 OTU3 Sample1       0.3   Fungi      Glomeromycota
-# # 1 OTU1 Sample1       0.1   Fungi         Ascomycota
-# # 2 OTU1 Sample2       0.0   Fungi         Ascomycota
-# # 3 OTU2 Sample1       0.0   Fungi      Basidiomycota
-# # 6 OTU3 Sample2       0.0   Fungi      Glomeromycota
-#
