@@ -4,11 +4,19 @@
 
 # ============== Installation of packages =================== #
 
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# BiocManager::install("dada2", version = "3.22")
+# devtools::install_github("adrientaudiere/MiscMetabar")
+# devtools::install_github("adrientaudiere/taxinfo")
+# pak::pak("adrientaudiere/taxinfo")
+
 # devtools::install_github is deprecated use pak::pak instead
 
 # TaxInfo
 # pak::pak("adrientaudiere/MiscMetabar")
 # pak::pak("adrientaudiere/taxinfo")
+#
 #
 # # FugalTraits
 # pak::pak("ropenscilabs/datastorr")
@@ -31,7 +39,7 @@ setwd("Database/")
 # Corrections :
 # -> k or d for the kingdom
 # -> exclude (Fungi) at the end of Genus name
-expand_taxnames <- function(OTU_table) {
+expand_taxnames <- function(OTU_table, taxonomy) {
   OTU_table <- OTU_table |>
     mutate(
       Kingdom = str_match(taxonomy, "[kd]:([^, \n]+)")[, 2],
@@ -79,20 +87,28 @@ ft_to_trophic_mode <- function(x) {
         "dung_saprotroph",
         "fungal_decomposer", # new
         "litter_saprotroph",
+        "myxomycete_decomposer", # new
         "nectar/tap_saprotroph", # new
         "pollen_saprotroph",
+        "resin_saprotroph", # new
         "rock-inhabiting", # new
         "soil_saprotroph",
+        "unsepcified_saprotroph", # new
         "unspecified_saprotroph",
         "wood_saprotroph"
       ) ~ "Saprotroph",
     x %in%
       c(
         "algal_parasite",
+        "algivorous/protistivorous", # new
         "animal_parasite",
         "arthropod_parasite", # new
+        "bacterivorous", # new
         "bryophilous", # new
+        "fish_parasite", # new
+        "invertebrate_parasite", # new
         "lichen_parasite",
+        "moss_parasite", # new
         "mycoparasite",
         "nematophagous", # new
         "plant_pathogen",
@@ -102,25 +118,44 @@ ft_to_trophic_mode <- function(x) {
       ) ~ "Pathotroph",
     x %in%
       c(
+        "algal_ectosymbiont", # new
+        "algal_symbiont", # new
         "animal-associated",
         "animal_endosymbiont",
         "arbuscular_mycorrhizal",
         "arthropod-associated",
+        "coral-associated", # new
         "ectomycorrhizal",
         "epiphyte",
         "ericoid_mycorrhizal", # new
         "foliar_endophyte",
+        "insect-associated", # new
+        "invertebrate-associated", # new
         "lichenized",
+        "liverwort-associated", # new
         "moss_symbiont",
         "root-associated", # new
         "root_endophyte",
         "root_endophyte_dark_septate", # new
+        "termite_symbiont", # new
         "unspecified_symbiotroph",
         "vertebrate-associated" # new
       ) ~ "Symbiotroph",
-    is.na(x) | x %in% c("unspecified", "") ~ NA_character_,
+    is.na(x) |
+      x %in% c("unspecified", "", "0", "fatty_acid_producer") ~ NA_character_, # new
     .default = "Other"
   )
+}
+
+clean_guild <- function(table_traits) {
+  table_traits |>
+    mutate(
+      fg_guild_clean = fg_guild |>
+        str_squish() |>
+        str_to_lower() |>
+        str_replace_all(" ", "_") |>
+        str_replace_all("\\|", "")
+    )
 }
 
 # Add column trophicMode to a table with traits assigned by fungaltraits enhanced table
@@ -203,22 +238,22 @@ plot_trophic_abundance_per_sample <- function(
 
 # A test on Tedersoo full sintax
 OTU_table <- read.csv(
-  "OTU_table_Tedersoo_ITS_full_sintax_fungi_clean.csv",
+  "cleaned_OTU_tables/OTU_table_Tedersoo_ITS_full_vsearch_fungi_clean.csv",
   header = TRUE,
   sep = ";"
 )
 
 # First expand the taxnames to match phyloseq conventions
-OTU_table <- expand_taxnames(OTU_table)
+OTU_table <- expand_taxnames(OTU_table, taxonomy)
 
 # Then get a phyloseq object to use the taxInfo functions
-data_sintax <- phyloseq_from_table(OTU_table)
+data <- phyloseq_from_table(OTU_table)
 
 # Check names according to Taxref (210) conventions
-data_sintax_clean <- gna_verifier_pq(data_sintax, data_sources = 210)
+data_clean <- gna_verifier_pq(data, data_sources = 210)
 
 # Tests for the modified taxa by the verifier
-taxa_ps <- as.data.frame(tax_table(data_sintax_clean))
+taxa_ps <- as.data.frame(tax_table(data_clean))
 mismatches <- taxa_ps |>
   filter(!is.na(Genus) & !is.na(genusEpithet)) |>
   filter(Genus != genusEpithet) |>
@@ -230,8 +265,8 @@ print.data.frame(mismatches)
 sum(mismatches$number_mismatch)
 
 # Get traits from the enhanced fungalTraits and funGuild
-data_sintax_traits <- fungal_traits_guilds(
-  data_sintax_clean,
+data_traits <- fungal_traits_guilds(
+  data_clean,
   fungal_traits_file = "traitsTable/FUNGALT_DB_MROY041125.csv",
   ft_taxonomic_rank = "genusEpithet",
   ft_csv_rank = "GENUS",
@@ -281,23 +316,31 @@ data_sintax_traits <- fungal_traits_guilds(
 # 3 OTU2 Sample1       0.0   Fungi      Basidiomycota
 # 6 OTU3 Sample2       0.0   Fungi      Glomeromycota
 
-table_sintax_traits <- psmelt(data_sintax_traits)
+table_traits <- psmelt(data_traits)
 
 # Reduce lifestyle to the 3 categories of trophic mode (Saprotroph, Pathotroph, Symbiotroph)
 # To match the match FungalTraits with FunGuild
 
-table_sintax_traits <- add_trophicMode_ft(table_sintax_traits)
+table_traits <- add_trophicMode_ft(table_traits)
 
 # If there are "Other" in categories, you can check which lifestyles didn't match with the following :
 
-# other_values <- unique(table_sintax_traits$ft_Secondary_lifestyle[
-#   ft_to_trophic_mode(table_sintax_traits$ft_Secondary_lifestyle) == "Other"
+# other_values <- unique(table_traits$ft_Secondary_lifestyle[
+#   ft_to_trophic_mode(table_traits$ft_Secondary_lifestyle) == "Other"
 # ])
 # print(sort(other_values))
-#
+
+# ============= If previous phyloseq regstered ============= #
+
+table_traits <- read_pq(
+  path = "phyloseq_traits/pq_Tedersoo_ITS_full_vsearch_FungalTraits_enhanced_FunGuild",
+  taxa_are_rows = TRUE
+)
+
+
 # Plot trophic abundance graph with fungatraits assignments
 plot_trophic_abundance_per_sample(
-  table_sintax_traits,
+  table_traits,
   "ft_trophicMode",
   "FungalTraits enhanced"
 )
@@ -310,7 +353,7 @@ ggsave(
 
 # Plot trophic abundance for funGuild assignments
 plot_trophic_abundance_per_sample(
-  table_sintax_traits,
+  table_traits,
   "fg_trophicMode",
   "FunGuild"
 )
@@ -320,7 +363,110 @@ ggsave(
   height = 10
 )
 
+# ==================== Test of unasigned taxa ============================== #
 
+df_traits <- as.data.frame(tax_table(data_traits))
+df_traits <- add_trophicMode_ft(df_traits)
+no_trophic <- df_traits |>
+  filter(is.na(ft_trophicMode) & !is.na(fg_trophicMode)) |>
+  group_by(Phylum, Family, Genus) |> #, Species, currentCanonicalSimple) |>
+  summarise(number_mismatch = n(), .groups = "drop") |>
+  arrange(desc(number_mismatch)) |>
+  filter(number_mismatch > 15)
+
+print.data.frame(no_trophic)
+sum(no_trophic$number_mismatch)
+
+no_trophic <- df_traits |>
+  filter(is.na(ft_trophicMode)) |>
+  group_by(Phylum) |> #, Species, currentCanonicalSimple) |>
+  summarise(number_mismatch = n(), .groups = "drop") |>
+  arrange(desc(number_mismatch)) |>
+  filter(number_mismatch > 15)
+
+print.data.frame(no_trophic)
+sum(no_trophic$number_mismatch)
+
+
+# ======== Venn Diagrams ============= #
+head(df_traits$cons_trophicMode_agreement)
+
+library(VennDiagram)
+
+X <- list(
+  FunGuild = rownames(df_traits |> filter(!is.na(fg_trophicMode))),
+  FungalTraits = rownames(df_traits |> filter(!is.na(ft_trophicMode)))
+)
+
+getwd()
+
+grid.newpage()
+
+venn_plot <- venn.diagram(
+  x = X,
+  category.names = c("FunGuild", "Fungal Traits"),
+  filename = NULL,
+  output = TRUE,
+  imagetype = "png",
+
+  lwd = 1,
+  col = c("orange", 'orchid'),
+  fill = c(alpha("orange", 0.5), alpha('orchid', 0.5)),
+
+  cex = 0.5,
+  fontfamily = "sans",
+  ext.text = FALSE,
+
+  cat.cex = 0.3,
+  cat.pos = c(-27, 27),
+  cat.default.pos = "outer",
+  cat.fontfamily = "sans",
+  cat.col = c("orange", 'orchid')
+)
+
+
+grid.draw(venn_plot)
+
+png(
+  'Venn_diagrams/trophic_funguild_vs_fungaltraits_Tedersoo_ITS_full_vsearch.png',
+  height = 480,
+  width = 480,
+  res = 300
+)
+
+grid.draw(venn_plot)
+dev.off()
+
+X <- list(
+  FunGuild = rownames(df_traits |> filter(!is.na(fg_trophicMode))),
+  FungalTraits = rownames(df_traits |> filter(!is.na(ft_trophicMode))),
+  consensus = rownames(df_traits |> filter(!is.na(cons_trophicMode)))
+)
+
+
+venn.diagram(
+  x = X,
+  category.names = c("FunGuild", "Fungal Traits", "consensus"),
+  filename = 'Venn_diagrams/trophic_funguild_vs_fungaltraits_Tedersoo_ITS_full_vsearch.png',
+  output = TRUE,
+  imagetype = "png",
+  height = 480,
+  width = 480,
+  resolution = 300,
+  compression = "lzw",
+  lwd = 1,
+  col = c("orange", 'orchid', 'slateblue'),
+  fill = c(alpha("orange", 0.5), alpha('orchid', 0.5), alpha('slateblue', 0.5)),
+  cex = 0.5,
+  fontfamily = "sans",
+  cat.cex = 0.3,
+  cat.default.pos = "outer",
+  cat.fontfamily = "sans",
+  cat.col = c("orange", 'orchid', 'slateblue')
+)
+
+
+print("yeay")
 # ==================== Tests and unused functions ========================== #
 
 # == Test for the table obtain from the fungaltrait r package == #
@@ -331,8 +477,8 @@ ggsave(
 # ft_col_names <- colnames(fun_traits)
 # write.csv(fun_traits, file = "traitsTable/fungalTraits.csv")
 
-# data_sintax_traits <- fungal_traits_guilds(
-#   data_sintax_clean,
+# data_traits <- fungal_traits_guilds(
+#   data_clean,
 #   fungal_traits_file = "traitsTable/fungalTraits.csv",
 #   ft_taxonomic_rank = "genusEpithet",
 #   ft_csv_rank = "Genus",
@@ -356,11 +502,11 @@ ggsave(
 #   verbose = TRUE
 # )
 
-# table_sintax_traits <- psmelt(data_sintax_traits)
+# table_traits <- psmelt(data_traits)
 
 # # Plot trophic abundance graph with fungatraits assignments
 # plot_trophic_abundance_per_sample(
-#   table_sintax_traits,
+#   table_traits,
 #   "ft_trophic_mode_fg",
 #   "FungalTraits R Package"
 # )
@@ -369,21 +515,24 @@ ggsave(
 #   width = 20,
 #   height = 10
 # )
-# test_tax <- tax_table(data_sintax_traits)
-# tax_table_sintax_traits <- as.data.frame(tax_table(data_sintax_traits))
-# unique(tax_table_sintax_traits$ft_trait_fg)
-# unique(tax_table_sintax_traits$ft_guild_fg)
-# unique(tax_table_sintax_traits$ft_trophic_mode_fg)
+# test_tax <- tax_table(data_traits)
+# tax_table_traits <- as.data.frame(tax_table(data_traits))
+# unique(tax_table_traits$ft_trait_fg)
+# unique(tax_table_traits$ft_guild_fg)
+# unique(tax_table_traits$ft_trophic_mode_fg)
 
-unique(table_sintax_traits$ft_primary_lifestyle)
+unique(table_traits$ft_primary_lifestyle)
 
-unique(table_sintax_traits$fg_trait)
-unique(table_sintax_traits$fg_guild)
-unique(table_sintax_traits$fg_trophicMode)
+unique(table_traits$fg_trait)
+unique(table_traits$fg_guild)
+table_traits <- clean_guild(table_traits)
+
+unique(table_traits$fg_guild_clean)
+unique(table_traits$fg_trophicMode)
 
 #
 # Test the tax bar function (not useful for trophic per sample)
-# tax_bar_pq(data_sintax_traits, taxa = "ft_trophic_mode_fg")
+# tax_bar_pq(data_traits, taxa = "ft_trophic_mode_fg")
 
 # ======================== Examples =========================== #
 # df <- data.frame(

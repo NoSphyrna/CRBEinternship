@@ -274,7 +274,7 @@ plot_trophic_abundance_per_sample <- function(
 # INPUT_TRAITS <- "Database/traitsTable"
 # OUTPUT_PLOT <- "Database/plot_taxInfo_traits"
 # OUTPUT_PS <- "Database/phyloseq_traits"
-methods <- c("Tedersoo", "Getplage", "Illumina")
+methods <- c("Illumina") # "Tedersoo", "Getplage",
 sections <- c("ITS1", "ITS_full", "ITS_none")
 clusters <- c("sintax", "vsearch")
 # method <- "Tedersoo"
@@ -285,6 +285,10 @@ clusters <- c("sintax", "vsearch")
 for (method in methods) {
   for (section in sections) {
     for (cluster in clusters) {
+      cat("\n# =========================== #")
+      cat("# Method | Section | Cluster #\n")
+      cat("# ", method, " | ", section, " | ", cluster, "#\n")
+      cat("# =========================== #\n")
       # Get the OTU_table
       OTU_table <- read.csv(
         paste0(
