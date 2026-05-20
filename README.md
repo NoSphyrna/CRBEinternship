@@ -16,7 +16,7 @@ mkdir ~/work/R
 ln -sr ~/work/R ~/R
 ```
 
-### Lancement d'un session et chargement des modules
+### Lancement de session et chargement des modules
 
 Ensuite lancer une session avec suffisament de ram pour évitier
 un OOM (Out Of Memory) lors de l'installation des packages
@@ -58,8 +58,8 @@ module avail statistics/R
 
 ### Installation d'abseil : (nécessaire pour le package s2 lui-même nécessaire pour taxinfo mais pas pour MiscMetabar)
 
-On crée d'abord l'endroit où l'on souhaite stocker le package abseil de manière permanante
-Et l'endroit ou l'on souhaite faire la compilation du package.
+On crée d'abord l'endroit où l'on souhaite stocker le package abseil de
+manière permanante et l'endroit ou l'on souhaite faire la compilation du package.
 
 Ici par example, j'ai utiliser le répertoire **~/work/local** pour le stockage permanant
 et **~/work/tmp** pour le stockage temporaire pour la compilation.
@@ -96,18 +96,20 @@ Maintenant, il faut configurer la compilation avec cmake :
 Explication de la commande :
 
 - **cmake .. \\** : on lance cmake depuis le dossier parent
-  (".." = "abseil-cpp" ici), le "" permet d'écrire la commande
+  (".." = "abseil-cpp-20260107.1" ici), le "\\" permet d'écrire la commande
   sur plusieurs lignes pour plus de lisibilité mais on peut aussi
   tout écrire sur une seule ligne (voir en dessous).
 - **-DCMAKE_INSTALL_PREFIX=~/work/local** : Le dossier où l'on souhaite
   installer les fichier compiler.
 - **-DCMAKE_CXX_STANDARD=17** : La version du compilateur gcc minimale pour
-  abseil (permet de vérifier à la compilation que l'on a bien la bonne version de gcc)
+  abseil (permet de vérifier à la compilation que l'on a bien la bonne version
+  de gcc)
 - **-DABSL_PROPAGATE_CXX_STD=ON** : Propagation de la vérification précédente
   à tous les modules internes.
 - **-DCMAKE_BUILD_TYPE=Release** : Compression et optimisation des binaires créés
   par la compilation pour que le package soit plus léger.
-- **-DBUILD_SHARED_LIBS=ON** : Création de bibliotèques dynamiques (.so) au lieu de statiques pour que R puisse les charger.
+- **-DBUILD_SHARED_LIBS=ON** : Création de bibliotèques dynamiques (.so) au lieu
+  de statiques pour que R puisse les charger.
 
 ```bash
 cmake .. \
@@ -124,13 +126,12 @@ La version en une ligne de cette même commande:
 cmake .. -DCMAKE_INSTALL_PREFIX=~/work/local -DCMAKE_CXX_STANDARD=17 -DABSL_PROPAGATE_CXX_STD=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
 ```
 
-Maintenant, il faut compiler le package, **il faut choisir une des deux commandes
-parmis les suivantes :**
+Maintenant, il faut compiler le package, **il faut choisir UNE commande parmis les 2 suivantes :**
 
 Si on a choisi d'ajouter des CPUs à lors du
-\[lancement de la session\](###Lancement d'un session et chargement des modules)
+[lancement de la session](#lancement-de-session-et-chargement-des-modules)
 pour aller plus vite on peut exécuter la commande suivante avec le même nombre
-de cpus que l'on a alloué.
+de CPUs que l'on a alloué.
 
 ```bash
 make -j4
@@ -143,7 +144,7 @@ make
 ```
 
 Enfin, on installe les fichier compilés dans le dossier **~/work/local**
-précedemment créé :
+précédemment créé :
 
 ```bash
 make install
@@ -156,10 +157,10 @@ cd ~/work/tmp
 rm -rf abseil-cpp-20260107.1 abseil-cpp-20260107.1.tar.gz
 ```
 
-Enfin, il faut exporter les variables d'envirronement pour que les librairie R
+Enfin, il faut exporter les variables d'environnement pour que les librairies R
 sachent où trouver abseil.
-Et pour que ça soit permanant, on écrit les commandes export dans le fichier ".bashrc"
-Puis on recharge le fichier ".bashrc" avec "source"
+Et pour que ça soit permanant, on écrit les commandes d'export dans le fichier ".bashrc".
+Puis on recharge le fichier ".bashrc" avec "source".
 
 ```bash
 echo 'export PKG_CONFIG_PATH=$HOME/work/local/lib64/pkgconfig:$PKG_CONFIG_PATH' >> ~/.bashrc
