@@ -27,6 +27,7 @@ library(taxinfo)
 library(MiscMetabar)
 library(fungaltraits)
 library(stringr)
+library(tibble)
 
 # ============== Set Workspace accordingly ======== #
 # Modify here where tou want to work
@@ -150,7 +151,7 @@ ft_to_trophic_mode <- function(x) {
 clean_guild <- function(table_traits) {
   table_traits |>
     mutate(
-      fg_guild_clean = fg_guild |>
+      fg_guild = fg_guild |>
         str_squish() |>
         str_to_lower() |>
         str_replace_all(" ", "_") |>
@@ -176,16 +177,41 @@ add_trophicMode_ft <- function(table_traits) {
   return(table_traits)
 }
 
+estimate_assignation_per_sample <- function(
+  table_traits,
+  troph_col,
+  title_end
+) {
+  cat("Replacing NA by \"unknown\"\n")
+  table_traits[[troph_col]][is.na(
+    table_traits[[troph_col]]
+  )] <- "unknown"
+
+  cat("Trimming spaces\n")
+  # Trim spaces around and inside the column
+  table_traits[[troph_col]] <- str_squish(table_traits[[troph_col]])
+
+  # Sum the relative abundance by trophic mode and sample
+  cat("Creating temporary grouped table\n")
+  trophic_long <- table_traits |>
+    group_by(Sample, .data[[troph_col]]) |>
+    summarise(abundance = sum(Abundance), .groups = "drop") |>
+    group_by(.data[[troph_col]]) |>
+    summarise(mean_abundance = mean(abundance))
+
+  return(trophic_long)
+}
+
 # This function plots the abundance of each trophicMode in each samples of a melted phyloseq object
 plot_trophic_abundance_per_sample <- function(
   table_traits,
   troph_col,
   title_end
 ) {
-  cat("Replacing NA by \"Unknown\"\n")
+  cat("Replacing NA by \"unknown\"\n")
   table_traits[[troph_col]][is.na(
     table_traits[[troph_col]]
-  )] <- "Unknown"
+  )] <- "unknown"
 
   cat("Trimming spaces\n")
   # Trim spaces around and inside the column
@@ -199,7 +225,7 @@ plot_trophic_abundance_per_sample <- function(
 
   cat("Set the color of unknown to grey\n")
   trophs <- unique(trophic_long[[troph_col]])
-  others <- trophs[trophs != "Unknown"]
+  others <- trophs[trophs != "unknown"]
 
   cols <- setNames(
     scales::hue_pal()(length(others)),
@@ -207,7 +233,7 @@ plot_trophic_abundance_per_sample <- function(
   )
 
   # Change color of Unknown to grey
-  cols <- c(cols, "Unknown" = "grey70")
+  cols <- c(cols, "unknown" = "grey70")
   cat("Plotting graph\n")
   p <- ggplot(
     trophic_long,
@@ -242,6 +268,43 @@ OTU_table <- read.csv(
   header = TRUE,
   sep = ";"
 )
+# Test for illumina
+OTU_table_il <- read.csv(
+  "cleaned_OTU_tables/OTU_table_Illumina_ITS1_vsearch_fungi_clean.csv",
+  header = TRUE,
+  sep = ";"
+)
+
+rm(OTU_table_il)
+rm(data)
+rm(data_clean)
+
+standardise_illumina <- function(OTU_table) {
+  OTU_table <- OTU_table |>
+    select(
+      !c(
+        abundance,
+        length,
+        chimera,
+        spread,
+        identity,
+        V5,
+        Genus_species,
+        proba_last
+      )
+    ) |>
+    rename(OTU = amplicon)
+  return(OTU_table)
+}
+
+OTU_table_il <- standardise_illumina(OTU_table_il)
+colnames(OTU_table)[!colnames(OTU_table) %in% colnames(OTU_table_il)]
+
+head(OTU_table_il$amplicon)
+
+head(OTU_table_il$proba_last)
+
+OTU_table <- expand_taxnames(OTU_table_il, taxonomy)
 
 # First expand the taxnames to match phyloseq conventions
 OTU_table <- expand_taxnames(OTU_table, taxonomy)
@@ -289,6 +352,75 @@ data_traits <- fungal_traits_guilds(
   verbose = TRUE
 )
 
+colnamed(as.data.frame(tax_table(data_clean)))
+
+# Occurence from GBIF
+data_clean_occ <- tax_gbif_occur_pq(data_clean, by_country = TRUE)
+
+taxa <- read.table(
+  file = "tax_table_gbif_tedersoo_ITS_full_vsearch_clean_names.csv",
+  header = TRUE,
+  sep = ";",
+  row.names = "OTU"
+)
+taxa <- as.data.frame(tax_table(data_clean_occ))
+otu_mat <- as.data.frame(otu_table(data_clean_occ))
+
+sample_mat <- t(otu_mat)
+str(sample_mat)
+
+# Select only country datas and get the relative occurance found
+occ_mat <- taxa |>
+  select(
+    -c(
+      Kingdom,
+      Phylum,
+      Class,
+      Order,
+      Family,
+      Genus,
+      Species,
+      taxa_name,
+      currentName,
+      currentCanonicalSimple,
+      genusEpithet,
+      specificEpithet,
+      namePublishedInYear,
+      authorship,
+      bracketauthorship,
+      scientificNameAuthorship
+    )
+  ) |>
+  mutate_all(~ replace(., is.na(.), 0)) |>
+  mutate(
+    row_sum = rowSums(across(where(is.numeric)))
+  ) |>
+  mutate(row_sum = if_else(row_sum == 0, 1, row_sum)) |>
+  mutate_at(vars(-("row_sum")), ~ . / row_sum) |>
+  select(-row_sum)
+
+head(occ_mat)
+str(occ_mat)
+
+# Get row names
+taxa <- taxa |>
+  rownames_to_column(var = "OTU")
+
+write.table(
+  taxa,
+  file = "tax_table_gbif_tedersoo_ITS_full_vsearch_clean_names.csv",
+  sep = ";",
+  row.names = FALSE
+)
+
+data_clean_not_verified <- data_clean
+
+
+tax_gbif_occur_pq(
+  data_clean,
+  taxonomic_rank = c("Genus", "Species"),
+  by_country = TRUE
+)
 # Get a melted dataframe from the phyloseq object obtain (melted datafram correpsond to reapeated lines for each sample and each OTU)
 # Example :
 
@@ -337,6 +469,19 @@ table_traits <- read_pq(
   taxa_are_rows = TRUE
 )
 
+cols_to_delete <- c(
+  "scientificNameAuthorship",
+  "bracketauthorship",
+  "authorship",
+  "namePublishedInYear",
+  "fg_citationSource",
+  "fg_notes",
+  "fg_growthForm"
+)
+for (col in cols_to_delete) {
+  table_traits[[col]] <- NULL
+  gc()
+}
 
 # Plot trophic abundance graph with fungatraits assignments
 plot_trophic_abundance_per_sample(
@@ -345,7 +490,7 @@ plot_trophic_abundance_per_sample(
   "FungalTraits enhanced"
 )
 ggsave(
-  "plot_tests/trophic_abundance_Tedersoo_ITS_full_sintax_FungalTraits_enhanced.png",
+  "plot_tests/trophic_abundance_Illumina_ITS1_vsearch_FungalTraits_enhanced.png",
   width = 20,
   height = 10
 )
@@ -358,11 +503,17 @@ plot_trophic_abundance_per_sample(
   "FunGuild"
 )
 ggsave(
-  "plot_tests/trophic_abundance_Tedersoo_ITS_full_sintax_FunGuild.png",
+  "plot_tests/trophic_abundance_Illumina_ITS1_vsearch_FungalTraits_enhanced.png",
   width = 20,
   height = 10
 )
 
+# Get mean assignation
+estimate_assignation_per_sample(
+  table_traits,
+  "fg_trophicMode",
+  "FunGuild"
+)
 # ==================== Test of unasigned taxa ============================== #
 
 df_traits <- as.data.frame(tax_table(data_traits))
@@ -527,7 +678,13 @@ unique(table_traits$fg_trait)
 unique(table_traits$fg_guild)
 table_traits <- clean_guild(table_traits)
 
-unique(table_traits$fg_guild_clean)
+plot_trophic_abundance_per_sample(
+  table_traits,
+  "fg_guild",
+  "FunGuild guilds"
+)
+
+unique(table_traits$fg_guild)
 unique(table_traits$fg_trophicMode)
 
 #
