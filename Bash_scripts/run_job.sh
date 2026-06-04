@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH -J run_taxinfo
 #SBATCH -o /home/%u/work/job_logs/output_%j.out
+#SBATCH -t 24:00:00
 #SBATCH --mem=8G
 #SBATCH -c 4
 
@@ -19,6 +20,7 @@ pq_traits="$HOME/work/data_taxinfo/traits_pq"
 plot_traits="$HOME/work/plots/traits"
 plot_maps="$HOME/work/plots/maps"
 plot_range="$HOME/work/plots/range"
+traits_table="$HOME/save/traitsTable/FUNGALT_DB_MROY041125.csv"
 
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 R_SCRIPTS="$SLURM_SUBMIT_DIR/../R_scripts"
@@ -33,6 +35,9 @@ else
 		;;
 	"occur")
 		Rscript "$R_SCRIPTS"/add_occur.R "$pq_verify" "$pq_occur"
+		;;
+	"traits")
+		Rscript "$R_SCRIPTS"/add_traits.R "$pq_verify" "$pq_traits" "$traits_table"
 		;;
 	*)
 		echo "Unknown arg : $1" >&2
