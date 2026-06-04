@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J run_taxinfo
-#SBATCH -o ~/work/job_logs/output_%j.out
+#SBATCH -o $HOME/work/job_logs/output_%j.out
 #SBATCH --mem=8G
 #SBATCH -c 4
 
@@ -20,8 +20,9 @@ plot_traits="$HOME/work/plots/traits"
 plot_maps="$HOME/work/plots/maps"
 plot_range="$HOME/work/plots/range"
 
-#Charge config file
-source ./config.cfg
+#Charge config file (a liitle trick to make sure it's form the same directory as the script)
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+source "$SCRIPT_DIR/config.cfg"
 
 if [ "$#" -lt 1 ]; then
 	Rscript ../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
@@ -31,7 +32,7 @@ else
 		Rscript ../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
 		;;
 	"occur")
-		Rscript ../R_scripts/add_occur.R"$pq_verify" "$pq_occur"
+		Rscript ../R_scripts/add_occur.R "$pq_verify" "$pq_occur"
 		;;
 	*)
 		echo "Unknown arg : $1" >&2
