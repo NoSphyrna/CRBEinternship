@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J run_taxinfo
-#SBATCH -o $HOME/work/job_logs/output_%j.out
+#SBATCH -o /home/%u/work/job_logs/output_%j.out
 #SBATCH --mem=8G
 #SBATCH -c 4
 
