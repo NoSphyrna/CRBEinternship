@@ -21,18 +21,18 @@ plot_maps="$HOME/work/plots/maps"
 plot_range="$HOME/work/plots/range"
 
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-source "$SCRIPT_DIR/config.cfg"
+R_SCRIPTS="$SLURM_SUBMIT_DIR/../R_scripts"
+source "$SLURM_SUBMIT_DIR/config.cfg"
 
 if [ "$#" -lt 1 ]; then
-	Rscript "$SCRIPT_DIR"/../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
+	Rscript "$R_SCRIPTS"/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
 else
 	case "$1" in
 	"verify")
-		Rscript "$SCRIPT_DIR"/../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
+		Rscript "$R_SCRIPTS"/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
 		;;
 	"occur")
-		Rscript "$SCRIPT_DIR"/../R_scripts/add_occur.R "$pq_verify" "$pq_occur"
+		Rscript "$R_SCRIPTS"/add_occur.R "$pq_verify" "$pq_occur"
 		;;
 	*)
 		echo "Unknown arg : $1" >&2
