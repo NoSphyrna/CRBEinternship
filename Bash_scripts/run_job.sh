@@ -25,14 +25,14 @@ SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 source "$SCRIPT_DIR/config.cfg"
 
 if [ "$#" -lt 1 ]; then
-	Rscript ../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
+	Rscript "$SCRIPT_DIR"/../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
 else
 	case "$1" in
 	"verify")
-		Rscript ../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
+		Rscript "$SCRIPT_DIR"/../R_scripts/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"
 		;;
 	"occur")
-		Rscript ../R_scripts/add_occur.R "$pq_verify" "$pq_occur"
+		Rscript "$SCRIPT_DIR"/../R_scripts/add_occur.R "$pq_verify" "$pq_occur"
 		;;
 	*)
 		echo "Unknown arg : $1" >&2
