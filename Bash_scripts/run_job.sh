@@ -36,6 +36,9 @@ else
 	"occur")
 		Rscript "$R_SCRIPTS"/add_occur.R "$pq_verify" "$pq_occur"
 		;;
+	"range")
+		Rscript "$R_SCRIPTS"/add_range.R "$pq_verify" "$pq_range"
+		;;
 	"traits")
 		Rscript "$R_SCRIPTS"/add_traits.R "$pq_verify" "$pq_traits" "$traits_table"
 		;;
