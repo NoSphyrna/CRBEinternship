@@ -354,7 +354,7 @@ data_traits <- fungal_traits_guilds(
 
 colnamed(as.data.frame(tax_table(data_clean)))
 
-# Occurence from GBIF
+# ===================================== Occurence from GBIF =================================== #
 data_clean_occ <- tax_gbif_occur_pq(data_clean, by_country = TRUE)
 
 taxa <- read.table(
