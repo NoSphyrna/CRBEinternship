@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -J run_basecalling
-#SBATCH -o /home/%u/work/job_logs/output_%j.out
+#SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
 #SBATCH --partition=gpuq
 #SBATCH --gres=gpu:nvidia_a100:1
-#SBATCH -t 96:00:00
-#SBATCH --mem=64G
-#SBATCH -c 16
+#SBATCH -t 24:00:00
+#SBATCH --mem=16G
+#SBATCH -c 8
 
 #Load modules
 module purge
