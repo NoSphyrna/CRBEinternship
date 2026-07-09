@@ -46,6 +46,20 @@ mkdir dorado_models
 dorado download --model dna_r10.4.1_e8.2_400bps_sup@v5.2.0 --directory dorado_models/
 ```
 
+Basecalling :
+
+- --recursive allows to treat all pod5 files given in the input folder even when it's in different folders
+- --device cuda:all allows to make sure we use all available gpus when runnong the basecall
+- --emit-fastq change the output from bam files to fastq files
+- --kit-name the kit used to sequence the samples
+- --emit-summary to have a summary for pycoQC
+- if you want to treat separatly pass and fail add a --min-qscore for the treshold between pass and fail
+- -o output folder where the arborescence of fastq files whlie be placed
+- model : the model used for the basecalling (by default you can choose fast, hac or sup and it will download the corresponding one)
+- but here we downloaded first the model with dorado download then used the downloaded model.
+- input : the input folder containg all pod5 files we want to treat (as we use recursive the pod5 can be in lower folder
+  e.g. input/flow1/pod5/file.pod5 input/flow2/pod5/file2/pod5)
+
 ```bash
 dorado basecaller --recursive --device auto --emit-fastq --kit-name SQK-NBD114-24 --emit-summary -o output_dorado_sup/ dorado_models/dna_r10.4.1_e8.2_400bps_sup\@v5.2.0/ /home/bperez/save/MITI/Nanopore_run1
 ```
