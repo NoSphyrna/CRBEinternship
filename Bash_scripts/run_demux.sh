@@ -14,7 +14,7 @@ module load bioinfo/Cutadapt/5.0
 merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
 stats="$HOME/work/Nanopore/run1/stats/"
 demux="$HOME/work/Nanopore/run1/demux/"
-linked_adapters="$$HOME/work/Nanopore/Adapters/linked_adapters.fasta"
+linked_adapters="$HOME/work/Nanopore/Adapters/linked_adapters.fasta"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 
