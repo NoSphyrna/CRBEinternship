@@ -2,8 +2,8 @@
 #SBATCH -J run_basecalling
 #SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
 #SBATCH -t 24:00:00
-#SBATCH --mem=64G
-#SBATCH -c 16
+#SBATCH --mem=16G
+#SBATCH -c 8
 
 #Load modules
 module purge
@@ -25,4 +25,4 @@ find "$basecalled" -name "*.fastq" -not -name "merged.fastq" -exec cat {} + >"$b
 pycoQC -f "$basecalled/sequencing_summary.txt" -o "$stats/pycoQC.html"
 
 # FastQC
-fastqc -o "$stats" -memory 64G -t 16 "$basecalled/merged.fastq"
+fastqc -o "$stats" -memory 16G -t 8 "$basecalled/merged.fastq"
