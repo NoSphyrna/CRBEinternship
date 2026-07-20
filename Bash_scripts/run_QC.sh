@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH -J run_basecalling
 #SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/dorado/error_%j.out
 #SBATCH -t 24:00:00
 #SBATCH --mem=16G
 #SBATCH -c 8
@@ -15,11 +16,21 @@ module load bioinfo/pycoQC/2.5.2
 basecalled="$HOME/work/Nanopore/run1/basecalled_sup/"
 stats="$HOME/work/Nanopore/run1/stats/"
 
+merge_fastq="$basecalled/merged.fastq"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 
+if [ ! -d "$basecalled" ]; then
+	echo "Couldn't find the basecall folder : $basecalled doesn't exist"
+	exit 1
+fi
+if [ ! -d "$stats" ]; then
+	mkdir -p "$stats"
+fi
+
+name=$(basename "$merge_fastq")
 # Merge all fastq files in one fastq
-find "$basecalled" -name "*.fastq" -not -name "merged.fastq" -exec cat {} + >"$basecalled/merged.fastq"
+find "$basecalled" -name "*.fastq" -not -name "$name" -exec cat {} + >"$merge_fastq"
 
 # PycoQC
 pycoQC -f "$basecalled/sequencing_summary.txt" -o "$stats/pycoQC.html"

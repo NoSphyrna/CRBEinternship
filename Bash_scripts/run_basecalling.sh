@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH -J run_basecalling
 #SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/dorado/error_%j.out
 #SBATCH --partition=gpuq
 #SBATCH --gres=gpu:nvidia_a100:1
 #SBATCH -t 24:00:00
@@ -16,11 +17,33 @@ module load nvidia/CudaToolkit/12.4 # To use gpus
 #default
 pod5="/home/bperez/save/MITI/Nanopore_run1/"
 basecalled="$HOME/work/Nanopore/run1/basecalled_sup/"
-model="$HOME/work/Nanopore/dorado_models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0/"
+model_dir="$HOME/work/Nanopore/dorado_models/"
+model_name="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
+model="$model_dir/$model_name"
 kit_name="SQK-NBD114-24"
 
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
+
+# Checks for directories and files
+
+if [ ! -d "$pod5" ]; then
+	echo "Input pod5 folder not found : $pod5 doesn't exist"
+	exit 1
+fi
+
+if [ ! -d "$basecalled" ]; then
+	mkdir -p "$basecalled"
+fi
+
+if [ ! -d "$model_dir" ]; then
+	mkdir -p "$model_dir"
+fi
+
+# If model isn't downloaded already, then download it
+if [ ! -f "$model" ]; then
+	dorado download --model "$model_name" --directory "$model_dir"
+fi
 
 # Basecalling :
 # --recursive allows to treat all pod5 files given in the input folder even when it's in different folders

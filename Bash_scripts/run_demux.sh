@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH -J run_basecalling
-#SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
+#SBATCH -o /home/%u/work/job_logs/demux/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/demux/error_%j.out
 #SBATCH -t 24:00:00
 #SBATCH --mem=8G
 #SBATCH -c 16
@@ -16,25 +17,27 @@ module load bioinfo/Cutadapt/5.0
 merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
 stats="$HOME/work/Nanopore/run1/stats/"
 demux="$HOME/work/Nanopore/run1/demux/"
-linked_adapters="$HOME/work/Nanopore/Adapters/linked_adapters.fasta"
+linked_adapters="$HOME/work/Nanopore/run1/adapters/linked_adapters.fasta"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 
 # Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
 if [ ! -f "$merge_fastq" ]; then
 	echo "Invalid argument: $merge_fastq isn't a file"
+	exit 1
 fi
 
 if [ ! -f "$linked_adapters" ]; then
 	echo "Invalid argument: $linked_adapters isn't a file"
+	exit 1
 fi
 
 if [ ! -d "$stats" ]; then
-	mkdir "$stats"
+	mkdir -p "$stats"
 fi
 
 if [ ! -d "$demux" ]; then
-	mkdir "$demux"
+	mkdir -p "$demux"
 fi
 
 # -g file:"$linked_adapt" <- Here we use linked adapters like ADPATFWD...ADAPTREV and the -g option allows to force prensence of both adapters for a read to be trimmed
