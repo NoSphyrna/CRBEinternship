@@ -26,6 +26,7 @@ source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 # --recursive allows to treat all pod5 files given in the input folder even when it's in different folders
 # --device cuda:all allows to make sure we use all available gpus when runnong the basecall
 # --emit-fastq chage the output from bam files to fastq files
+# --emit-moves for the polishing with dorado
 # --kit-name the kit used to sequence the samples
 # --emit-summary to have a summary for pycoQC
 # if you want to treat separatly pass and fail add a --min-qscore for the treshold between pass and fail
@@ -34,4 +35,4 @@ source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 # but here we downloaded first the model with dorado download then used the downloaded model.
 # input : the input folder containg all pod5 files we want to treat (as we use recursive the pod5 can be in lower folder
 # e.g. input/flow1/pod5/file.pod5 input/flow2/pod5/file2/pod5)
-dorado basecaller --recursive --device cuda:all --emit-fastq --kit-name "$kit_name" --emit-summary -o "$basecalled" "$model" "$pod5"
+dorado basecaller --recursive --device cuda:all --emit-fastq --emit-moves --kit-name "$kit_name" --emit-summary -o "$basecalled" "$model" "$pod5"

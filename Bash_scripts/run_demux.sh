@@ -2,8 +2,10 @@
 #SBATCH -J run_basecalling
 #SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
 #SBATCH -t 24:00:00
-#SBATCH --mem=64G
+#SBATCH --mem=8G
 #SBATCH -c 16
+
+# For Cutadapt limiting factor is CPUs not ram
 
 #Load modules
 module purge
