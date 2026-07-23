@@ -121,21 +121,25 @@ def parse_info_file(
 
                 # The second adpater is on a new row (3')
                 row = next(tsv_reader, None)
-                if (row == None) or (
-                    read_id != str(row[i_id]) or rc != bool(int(row[i_rc]))
-                ):
+                if (row == None) or (read_id != str(row[i_id])):
                     print(
                         "Error : Adapters kept but not paired at info fil line : ",
                         tsv_reader.line_num,
                     )
                     sys.exit(1)
                     # might get rid of that later, a bit extreme here but it's for the test
-                seq_len = int(row[i_end]) + len(str(row[i_right]))
-                # The part trimmed is all bases after the start of the 3' adapter
-                n3 = seq_len - int(row[i_begin])
-                trims[read_id]["5'"] = n5
-                trims[read_id]["3'"] = n3
-                trims[read_id]["rc"] = rc
+                if int(row[i_check]) != -1:
+                    print(
+                        "The adapters are paired but not found at info line : ",
+                        tsv_reader.line_num,
+                    )
+                else:
+                    seq_len = int(row[i_end]) + len(str(row[i_right]))
+                    # The part trimmed is all bases after the start of the 3' adapter
+                    n3 = seq_len - int(row[i_begin])
+                    trims[read_id]["5'"] = n5
+                    trims[read_id]["3'"] = n3
+                    trims[read_id]["rc"] = rc
 
             row = next(tsv_reader, None)
         file.close()
