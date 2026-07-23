@@ -12,10 +12,12 @@
 module purge
 
 module load bioinfo/Cutadapt/5.0
+module devel/python/Python-3.12.4
 
 #default
 merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
 stats="$HOME/work/Nanopore/run1/stats/"
+pre_demux="$HOME/work/Nanopore/run1/pre_demux/"
 demux="$HOME/work/Nanopore/run1/demux/"
 linked_adapters="$HOME/work/Nanopore/run1/adapters/linked_adapters.fasta"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
@@ -36,12 +38,17 @@ if [ ! -d "$stats" ]; then
 	mkdir -p "$stats"
 fi
 
+if [ ! -d "$pre_demux" ]; then
+	mkdir -p "$pre_demux"
+fi
+
 if [ ! -d "$demux" ]; then
 	mkdir -p "$demux"
 fi
 
-# -g file:"$linked_adapt" <- Here we use linked adapters like ADPATFWD...ADAPTREV and the -g option allows to force prensence of both adapters for a read to be trimmed
+# -g file:"$linked_adapt" <- Here we use linked adapters like ADPATFWD...ADAPTREV and the -g option allows to force presence of both adapters for a read to be trimmed
 # --revcomp \ # allows to check reverse complement of ther read (in that case write the reversercomplent in th ourput file)
+# --rename '{header}\tCT:r:{rc}' \ # This allows to place the rc of the --revcomp after a tab and a prefix to find it with the python script and parse the info-file.tsv
 # --cores=0 \ # automatically detects the number of cpu cores available in the job
 # -e 0.1 --no-indels \ # Error max at 10% of the read length ~ 3 for the nanopore seq and no indels allowed
 # --discard-untrimmed \ # When an adapter has not been found, read is not trimmed then the read is discarded
@@ -50,9 +57,14 @@ fi
 cutadapt \
 	-g file:"$linked_adapters" \
 	--revcomp \
+	--rename '{header}\tCT:r:{rc}' \
 	--cores=0 \
 	-e 0.1 --no-indels \
 	--discard-untrimmed \
+	--info-file "$stats/info.tsv" \
 	--json="$stats/demux.cutadapt.json" \
-	-o "$demux/{name}.fastq" \
+	-o "$pre_demux/{name}.fastq" \
 	"$merge_fastq" >"$stats/demux_cutadapt.txt"
+
+# After we need to trimm move tables if they exist :
+python "$SLURM_SUBMIT_DIR/../Python_scripts/demux_moves.py" "$stats/info.tsv" "$pre_demux" "$demux"
