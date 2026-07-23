@@ -12,7 +12,7 @@
 module purge
 
 module load bioinfo/Cutadapt/5.0
-module devel/python/Python-3.12.4
+module load devel/Miniconda/Miniconda3
 
 #default
 merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
@@ -20,9 +20,13 @@ stats="$HOME/work/Nanopore/run1/stats/"
 pre_demux="$HOME/work/Nanopore/run1/pre_demux/"
 demux="$HOME/work/Nanopore/run1/demux/"
 linked_adapters="$HOME/work/Nanopore/run1/adapters/linked_adapters.fasta"
+biopy="$HOME/work/conda/envs/biopy"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
 
+# we activate the conda environment
+# TODO :Check if conda env is here and create it if not
+source activate "$biopy"
 # Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
 if [ ! -f "$merge_fastq" ]; then
 	echo "Invalid argument: $merge_fastq isn't a file"
