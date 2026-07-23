@@ -6,6 +6,10 @@
 
 import argparse
 import csv
+
+# We set the buffer of a row to 1 Go to avoid overflow error
+_ = csv.field_size_limit(10**9)
+
 import os
 import sys
 

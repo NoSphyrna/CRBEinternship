@@ -50,6 +50,7 @@ if [ ! -d "$demux" ]; then
 	mkdir -p "$demux"
 fi
 
+# --buffer-size=100000000 \ # Avoid overflow errors (set buffer to 100 Mo)
 # -g file:"$linked_adapt" <- Here we use linked adapters like ADPATFWD...ADAPTREV and the -g option allows to force presence of both adapters for a read to be trimmed
 # --revcomp \ # allows to check reverse complement of ther read (in that case write the reversercomplent in th ourput file)
 # --rename '{header}\tCT:r:{rc}' \ # This allows to place the rc of the --revcomp after a tab and a prefix to find it with the python script and parse the info-file.tsv
@@ -59,6 +60,7 @@ fi
 # -o "demux/{name}.fastq" \ # write the output fastq to the name of the sample (given with the adapter in the linked_adapt.fasta file)
 # "$input" # the input fastq file
 cutadapt \
+	--buffer-size=100000000 \
 	-g file:"$linked_adapters" \
 	--revcomp \
 	--rename '{header}\tCT:r:{rc}' \
