@@ -52,4 +52,5 @@ apptainer exec --bind "$proname_dir":/data --pwd /data "$proname" proname_import
 	--fwdprimer GTACACACCGCCCGTCG \
 	--revprimer CGCCTSCSCTTANTDATATGC \
 	--primertrimmingmode hard \
+	--verbose \
 	--plotformat html

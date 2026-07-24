@@ -70,9 +70,10 @@ def parse_info_file(
     trims = defaultdict(lambda: {"5'": 0, "3'": 0, "rc": False})
 
     with open(info_file) as file:
-        tsv_reader = csv.reader(
-            file, delimiter="\t", quoting=csv.QUOTE_NONE
-        )  # The info file is a tsv file
+        tsv_reader = csv.reader(file, delimiter="\t", quoting=csv.QUOTE_NONE)
+        # The info file is a tsv file
+        # the quoting NONE prevent vicious errors because
+        # the " can be found in the quality sequence and badly interpreted
         i_id = 0  # The id of the id of the read
         i_check = i_begin = i_end = i_right = i_rc = i_name = 0
         row = next(tsv_reader, None)
@@ -249,7 +250,9 @@ def trim_mv(
             tags[idx_mv] = ",".join(
                 [PREFIX_MV] + [str(stride)] + list(map(str, mv_table))
             )
-            new_title = "\t".join(tags)
+            new_title = "\t".join(
+                tags[:-1]
+            )  # to remove rc field (can cause issue after)
 
             _ = output_handle.write(f"@{new_title}\n{sequence}\n+\n{quality}\n")
         handle.close()

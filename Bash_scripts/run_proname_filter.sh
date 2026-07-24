@@ -43,8 +43,9 @@ fi
 
 apptainer exec --bind "$proname_dir":/data --pwd /data "$proname" proname_filter \
 	--datatype simplex \
-	--filtminlen 500 \
+	--filtminlen 100 \
 	--filtmaxlen 2000 \
 	--filtminqual 15 \
 	--threads 32 \
+	--verbose \
 	--inputpath "$demux"

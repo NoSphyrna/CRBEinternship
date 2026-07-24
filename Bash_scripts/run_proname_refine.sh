@@ -52,4 +52,5 @@ apptainer exec --nv --bind "$proname_dir":/data --pwd /data "$proname"proname_re
 	--minreadspercluster 2 \
 	--polisherthreads 32 \
 	--chimeramethod denovo \
+	--verbose \
 	--qiime2import no
