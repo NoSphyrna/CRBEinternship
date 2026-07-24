@@ -113,8 +113,16 @@ def parse_info_file(
                 i_rc = (
                     i_check + 10
                 )  # The boolean wether the read has been reverse complemented
+            try:
+                check_val = int(row[i_check])
+            except ValueError:
+                print("check val is not int at line :", tsv_reader.line_num)
+                print("Value of check :", row[i_check])
+                check_val = -1
 
-            if int(row[i_check]) != -1:  # if the read contains both adapters
+            if (
+                check_val != -1
+            ):  # if the read contains both adapters  # if the read contains both adapters
 
                 # Get the infos on the first adapter (5')
                 read_id = row[i_id]
