@@ -1,8 +1,8 @@
 # This script allows to trim and reverse move tables after the trimmming made by Cutadapt
 
-# TODO Add an 'in place' option with temporary files to avoid multiple folders
-# TODO Add more comments and specific comments for the functions
-# TODO Parallelise this script to accelerate it (with a ProcessPoolExecutor) see https://realpython.com/python-concurrency/
+# TODO: Add an 'in place' option with temporary files to avoid multiple folders
+# TODO: Add more comments and specific comments for the functions
+# TODO: Parallelise this script to accelerate it (with a ProcessPoolExecutor) see https://realpython.com/python-concurrency/
 
 import argparse
 import csv
@@ -70,9 +70,11 @@ def parse_info_file(
     trims = defaultdict(lambda: {"5'": 0, "3'": 0, "rc": False})
 
     with open(info_file) as file:
-        tsv_reader = csv.reader(file, delimiter="\t")  # The info file is a tsv file
+        tsv_reader = csv.reader(
+            file, delimiter="\t", quoting=csv.QUOTE_NONE
+        )  # The info file is a tsv file
         i_id = 0  # The id of the id of the read
-        i_check = i_begin = i_end = i_right = i_rc = 0
+        i_check = i_begin = i_end = i_right = i_rc = i_name = 0
         row = next(tsv_reader, None)
 
         while row != None:  # while there are reads to read
@@ -107,6 +109,7 @@ def parse_info_file(
                 i_right = (
                     i_check + 5
                 )  # The part at the right of the adapter (useful for the 3' adapter)
+                i_name = i_check + 6
                 i_rc = (
                     i_check + 10
                 )  # The boolean wether the read has been reverse complemented
@@ -114,13 +117,21 @@ def parse_info_file(
             if int(row[i_check]) != -1:  # if the read contains both adapters
 
                 # Get the infos on the first adapter (5')
-                read_id = str(row[i_id])
+                read_id = row[i_id]
                 # The part trimmed is all bases before the end of the 5' adapter
                 n5 = int(row[i_end])
                 rc = bool(int(row[i_rc]))
+                number = row[i_name].split(";")[1]
+
+                if number == "2":
+                    print(
+                        "Error : second part is found before at line",
+                        tsv_reader.line_num,
+                    )  # TODO: Decorelate reads
 
                 # The second adpater is on a new row (3')
                 row = next(tsv_reader, None)
+
                 if (row == None) or (read_id != str(row[i_id])):
                     print(
                         "Error : Adapters kept but not paired at info fil line : ",
@@ -128,19 +139,27 @@ def parse_info_file(
                     )
                     sys.exit(1)
                     # might get rid of that later, a bit extreme here but it's for the test
-                if int(row[i_check]) != -1:
+
+                if int(row[i_check]) == -1:
                     print(
                         "The adapters are paired but not found at info line : ",
                         tsv_reader.line_num,
                     )
                 else:
+
+                    number = row[i_name].split(";")[1]
+                    if number == "1":
+                        print(
+                            "Error : first part is found after at line",
+                            tsv_reader.line_num,
+                        )  # TODO: Decorelate reads
+
                     seq_len = int(row[i_end]) + len(str(row[i_right]))
                     # The part trimmed is all bases after the start of the 3' adapter
                     n3 = seq_len - int(row[i_begin])
                     trims[read_id]["5'"] = n5
                     trims[read_id]["3'"] = n3
                     trims[read_id]["rc"] = rc
-
             row = next(tsv_reader, None)
         file.close()
     return trims
