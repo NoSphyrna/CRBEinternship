@@ -251,7 +251,7 @@ def trim_mv(
             )
             new_title = "\t".join(tags)
 
-            _ = output_handle.write(f"@{new_title}\n{sequence}\n+\n{quality}")
+            _ = output_handle.write(f"@{new_title}\n{sequence}\n+\n{quality}\n")
         handle.close()
         output_handle.close()
 
