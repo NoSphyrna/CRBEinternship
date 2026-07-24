@@ -78,7 +78,9 @@ def parse_info_file(
         row = next(tsv_reader, None)
 
         while row != None:  # while there are reads to read
-            if i_check == 0:  # first row : get the indices
+            if (i_check == 0) or not (
+                str.startswith(row[i_check - 1], PREFIX_CT)
+            ):  # first row : get the indices or missing fields : recalculate
                 i_mv, _ = next(
                     (
                         (i, el)
