@@ -20,7 +20,7 @@ databases="$HOME/work/database"
 original="$databases/original"
 trimmed="$databases/trimmed"
 kraken="$databases/kraken"
-danbarcoder="$databases/dnabarcoder"
+dnabarcoder="$databases/dnabarcoder"
 
 data_script="$HOME/work/Metabarcoding/Illumina/00_prepare_database.sh"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
@@ -77,15 +77,18 @@ if [ ! -d "$kraken" ]; then
 	mkdir -p "$kraken"
 fi
 
-if [ ! -d "$danbarcoder" ]; then
-	mkdir -p "$danbarcoder"
+if [ ! -d "$dnabarcoder" ]; then
+	mkdir -p "$dnabarcoder"
 fi
 
+echo "Alright here"
 if [ "$TRIM" = true ]; then
 	#### ITS1
-	FILES=("$original"*)
+	FILES=("$original"/*)
+	echo "Files were ok"
 	for file in "${FILES[@]}"; do
 		NAME_DB="$(basename "$file" ".fasta")_ITS1_fung02"
+		echo "NAME_DB was ok too"
 
 		bash "$data_script" \
 			-i "$file" \
