@@ -43,7 +43,7 @@ if [ ! -f "$proname" ]; then
 fi
 
 # --nv enables nvidia support for gpu usage of dorado
-apptainer exec --nv --bind "$proname_dir":/data --pwd /data "$proname"proname_refine \
+apptainer exec --nv --bind "$proname_dir":/data --pwd /data "$proname" proname_refine \
 	--clusterid 0.97 \
 	--clusterthreads 32 \
 	--clusteringmethod vsearch \

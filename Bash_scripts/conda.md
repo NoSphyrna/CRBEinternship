@@ -34,3 +34,15 @@ and in a sbatch job :
 ```bash
 source activate ~/work/conda/envs/biopy
 ```
+
+## ITSxRust
+
+```bash
+conda create -p ~/work/conda/envs/itsxrust -c bioconda -c conda-forge itsxrust --override-channels -y
+```
+
+## p7zip env
+
+```bash
+conda create -p ~/work/conda/envs/p7zip -c bioconda -c conda-forge p7zip --override-channels -y
+```
