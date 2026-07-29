@@ -60,6 +60,10 @@ if [ ! -d "$original" ]; then
 	exit 1
 fi
 
+if [ ! -d "$taxo" ]; then
+	mkdir -p "$taxo"
+fi
+
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 	echo "Running vsearch assignation with vsearch on: $reads_OTU, with unite"
 	vsearch --usearch_global "$reads_OTU" \
