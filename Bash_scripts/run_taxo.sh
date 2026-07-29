@@ -95,7 +95,8 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 		--iddef 2 \
 		--userout "$taxo/taxonomy_OTU_vsearch_euk.txt"
 
-elif [ "$METHOD" = "all" ] || [ "$METHOD" = "sintax" ]; then
+fi
+if [ "$METHOD" = "all" ] || [ "$METHOD" = "sintax" ]; then
 	echo "Running vsearch assignation with sintax on: $reads_OTU, with unite"
 	vsearch --sintax "$reads_OTU" \
 		--db "$unite_utax" \
