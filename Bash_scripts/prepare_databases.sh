@@ -32,8 +32,10 @@ TRIM=false
 KRAKEN=false
 DNABAR=false
 usage() {
-	echo "Usage: $0 [-h][-r]"
-	echo "	-r skip the cutadapt trimming go directly to move table trimming"
+	echo "Usage: $0 [-h][-t][-k][-d]"
+	echo "	-t trimm databases placed in the original folder"
+	echo "	-k adapt databases placed in the original folder to kraken2"
+	echo "	-d adapt databases placed in the original folder to dnabarcoding"
 	exit 1
 }
 
@@ -81,14 +83,13 @@ if [ ! -d "$dnabarcoder" ]; then
 	mkdir -p "$dnabarcoder"
 fi
 
-echo "Alright here"
 if [ "$TRIM" = true ]; then
 	#### ITS1
 	FILES=("$original"/*)
-	echo "Files were ok"
+	echo "Files were ok: ${FILES[@]}"
 	for file in "${FILES[@]}"; do
 		NAME_DB="$(basename "$file" ".fasta")_ITS1_fung02"
-		echo "NAME_DB was ok too"
+		echo "First name : $NAME_DB"
 
 		bash "$data_script" \
 			-i "$file" \
@@ -104,6 +105,7 @@ if [ "$TRIM" = true ]; then
 
 		NAME_DB="$(basename "$file" ".fasta")_full_ITS_ITS5_ITS4"
 
+		echo "Second name : $NAME_DB"
 		# forward: ITS5 (Fung02_F)
 		# reverse: ITS4ngsUni
 
