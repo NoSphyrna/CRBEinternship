@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J prepare_databases
-#SBATCH -o /howork/job_logs/databases/output_%j.out
-#SBATCH -e /howork/job_logs/databases/error_%j.out
+#SBATCH -o /home/%u/work/job_logs/databases/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/databases/error_%j.out
 #SBATCH -t 24:00:00
 #SBATCH --mem=32G
 #SBATCH -c 16
