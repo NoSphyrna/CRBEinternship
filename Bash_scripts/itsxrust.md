@@ -1,4 +1,4 @@
-# Usage of ITSxRust:
+# Usage of ITSxRust
 
 First install it with conda
 to handle alls installs and dependancies
