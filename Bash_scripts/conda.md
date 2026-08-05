@@ -37,18 +37,22 @@ source activate ~/work/conda/envs/biopy
 
 ## ITSxRust
 
+With bioconda, we need to put conda-forge first so it looks like :
+
 ```bash
-conda create -p ~/work/conda/envs/itsxrust -c bioconda -c conda-forge itsxrust --override-channels -y
+conda create -p ~/work/conda/envs/itsxrust -c conda-forge -c bioconda itsxrust --override-channels -y
 ```
 
 ## p7zip env
 
 ```bash
-conda create -p ~/work/conda/envs/p7zip -c bioconda -c conda-forge p7zip --override-channels -y
+conda create -p ~/work/conda/envs/p7zip -c conda-forge -c bioconda p7zip --override-channels -y
 ```
 
 ## HiTac
 
+Here we use the solver libmamba to handle conflicts of differents versions
+
 ```bash
-conda create -p ~/work/conda/envs/hitac -c bioconda hitac --override-channels -y
+conda create -p ~/work/conda/envs/hitac -c conda-forge -c bioconda hitac --solver=libmamba -y
 ```

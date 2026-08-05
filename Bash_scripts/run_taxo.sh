@@ -6,12 +6,17 @@
 #SBATCH --mem=64G
 #SBATCH -c 32
 
+# needs hitac conda env
+
 #Load modules
 module purge
 
 module load bioinfo/VSEARCH/2.29.3
+module load devel/Miniconda/Miniconda3
 
-#default
+source activate ~/work/conda/envs/hitac #TODO: check if env exists else create it
+
+#default parameters
 databases="$HOME/work/database"
 original="$databases/original"
 trimmed="$databases/trimmed"
@@ -26,6 +31,8 @@ run="$working_dir/run1/"
 proname_dir="$working_dir/proname/run1/"
 reads_OTU="$proname_dir/rep_seqs.fasta"
 taxo="$run/taxo/"
+
+hitac_models="$HOME/work/HiTaC_models/"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_databases.cfg"
 source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
@@ -77,7 +84,7 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 		--db "$unite_utax" \
 		--id 0.7 \
 		--iddef 2 \
-		--userout "$taxo/taxonomy_OTU_vsearch_unite.txt"
+		--userout "$taxo/taxonomy_OTU_vsearch_unite.tsv"
 
 	# --threads $NB_CORES \ by default it uses all threads available so it's not necessary
 
@@ -93,7 +100,7 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 		--db "$euk_utax" \
 		--id 0.7 \
 		--iddef 2 \
-		--userout "$taxo/taxonomy_OTU_vsearch_euk.txt"
+		--userout "$taxo/taxonomy_OTU_vsearch_euk.tsv"
 
 fi
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "sintax" ]; then
@@ -101,14 +108,28 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "sintax" ]; then
 	vsearch --sintax "$reads_OTU" \
 		--db "$unite_utax" \
 		--sintax_cutoff 0.5 \
-		--tabbedout "$taxo/taxonomy_OTU_sintax_unite.txt" \
+		--tabbedout "$taxo/taxonomy_OTU_sintax_unite.tsv" \
 		--strand plus
 
 	echo "Running vsearch assignation with sintax on: $reads_OTU, with eukaryome"
 	vsearch --sintax "$reads_OTU" \
 		--db "$euk_utax" \
 		--sintax_cutoff 0.5 \
-		--tabbedout "$taxo/taxonomy_OTU_sintax_euk.txt" \
+		--tabbedout "$taxo/taxonomy_OTU_sintax_euk.tsv" \
 		--strand plus
 
+fi
+
+if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
+
+	models=("$hitac_models/*")
+	for model in "${models[@]}"; do
+		model_name=$(basename "$model")
+
+		echo "Running hitac assignation with model $model_name on: $reads_OTU"
+		hitac-classify \
+			--classifier "$model" \
+			--reads "$reads_OTU" \
+			--classification "$taxo/taxonomy_OTU_hitac_$model_name.tsv"
+	done
 fi
