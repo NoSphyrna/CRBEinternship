@@ -2,9 +2,12 @@
 #SBATCH -J prepare_databases
 #SBATCH -o /home/%u/work/job_logs/databases/output_%j.out
 #SBATCH -e /home/%u/work/job_logs/databases/error_%j.out
-#SBATCH -t 24:00:00
-#SBATCH --mem=32G
-#SBATCH -c 16
+#SBATCH -t 48:00:00
+#SBATCH --mem=256G
+#SBATCH -c 128
+
+# The 128 cores are needed for dnabarcoder to compute the cutoffs (Blast requires it because it launches blastqmakedb with option -num_threads 128)
+# Moreover just for unite, the computation of cutoffs is quite time and ressources consuming (more than 1 hour)
 
 # This script is adapted from the step00_database_ITS.sh
 # For Cutadapt limiting factor is CPUs not ram
@@ -130,40 +133,44 @@ if [ "$DNABAR" = true ]; then
 
 	dnabarcoder_dir=$(dirname "$(which dnabarcoder.py)")
 
-	# First transform the database according to
-	"$dnabarcoder_dir"/aidscripts/filterClassificationFromSequenceHeaders.py -i "$original/sh_general_release_dynamic_s_all_19.02.2025_dev.fasta" -prefix "$dnabarcoder/unite2025ITS"
+	# First transform the database according to the readme this gets the database performated in 3 files
+	# "$dnabarcoder_dir"/aidscripts/filterClassificationFromSequenceHeaders.py -i "$original/sh_general_release_dynamic_s_all_19.02.2025_dev.fasta" -prefix "$dnabarcoder/unite2025ITS"
 
 	#Compute cutoffs estimations (adapatation of the script unite2024.sh)
 	cd "$dnabarcoder" || exit 1
 
 	#select unique sequences
-	"$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.fasta -unique yes -c unite2025ITS.classification -o unite2025ITS.unique.fasta
-	dnabarcoder.py length -i unite2025ITS.unique.fasta -l 100
-	dnabarcoder.py overview -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification
+	# "$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.fasta -unique yes -c unite2025ITS.classification -o unite2025ITS.unique.fasta
+	# dnabarcoder.py length -i unite2025ITS.unique.fasta -l 100
+	# dnabarcoder.py overview -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification
+	#
+	# #select sequences having taxonomic information at the species level
+	# "$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank species -o unite2025ITS.unique.species.fasta
 
-	#select sequences having taxonomic information at the species level
-	"$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank species -o unite2025ITS.unique.species.fasta
+	# ====> change from original script : Before predict, a little hack is needed to keep blast environment even when dnbarcoder runs it with os.command(makeblastdb ...)
+	BLAST_PATH=$(module show bioinfo/NCBI_Blast+/2.15.0+ | grep PATH | cut -f2 -d " ")
+	export PATH="$BLAST_PATH:$PATH"
 	#predict similarity cutoffs for all the genera. For this big dataset, we do not compute the species similarity cutoffs for higher taxonomic levels
-	dnabarcoder.py predict -i unite2025ITS.unique.species.fasta -c unite2025ITS.unique.species.classification -st 0.7 -et 1 -s 0.001 -rank species -prefix unite2025ITS.unique -higherrank genus -maxproportion 0.9 -removecomplexes yes
-	#predict a global similarity cutoff
-	dnabarcoder.py predict -i unite2025ITS.unique.species.fasta -c unite2025ITS.unique.species.classification -st 0.9 -et 1 -s 0.001 -rank species -prefix unite2025ITS.unique -removecomplexes yes
-	#remove all the created files
-	rm unite2025ITS.unique.species.*
-
-	#genus
-	"$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank genus -maxseqnopergroup 1000 -o unite2025ITS.unique.genus.fasta
-	dnabarcoder.py predict -i unite2025ITS.unique.genus.fasta -c unite2025ITS.unique.genus.classification -st 0.7 -et 1 -s 0.001 -rank genus -higherrank family -prefix unite2025ITS.unique -maxproportion 0.75
-	dnabarcoder.py predict -i unite2025ITS.unique.genus.fasta -c unite2025ITS.unique.genus.classification -st 0.7 -et 1 -s 0.001 -rank genus -prefix unite2025ITS.unique
-	rm unite2025ITS.unique.genus.*
-
+	# dnabarcoder.py predict -i unite2025ITS.unique.species.fasta -c unite2025ITS.unique.species.classification -st 0.7 -et 1 -s 0.001 -rank species -prefix unite2025ITS.unique -higherrank genus -maxproportion 0.9 -removecomplexes yes
+	# #predict a global similarity cutoff
+	# dnabarcoder.py predict -i unite2025ITS.unique.species.fasta -c unite2025ITS.unique.species.classification -st 0.9 -et 1 -s 0.001 -rank species -prefix unite2025ITS.unique -removecomplexes yes
+	# #remove all the created files
+	# rm unite2025ITS.unique.species.*
+	#
+	# #genus
+	# "$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank genus -maxseqnopergroup 1000 -o unite2025ITS.unique.genus.fasta
+	# dnabarcoder.py predict -i unite2025ITS.unique.genus.fasta -c unite2025ITS.unique.genus.classification -st 0.7 -et 1 -s 0.001 -rank genus -higherrank family -prefix unite2025ITS.unique -maxproportion 0.75
+	# dnabarcoder.py predict -i unite2025ITS.unique.genus.fasta -c unite2025ITS.unique.genus.classification -st 0.7 -et 1 -s 0.001 -rank genus -prefix unite2025ITS.unique
+	# rm unite2025ITS.unique.genus.*
+	#
 	#family
-	"$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank family -maxseqnopergroup 1000 -o unite2025ITS.unique.family.fasta
-	dnabarcoder.py predict -i unite2025ITS.unique.family.fasta -c unite2025ITS.unique.family.classification -st 0.5 -et 1 -s 0.001 -rank family -higherrank order -prefix unite2025ITS.unique -maxproportion 0.75
-	dnabarcoder.py predict -i unite2025ITS.unique.family.fasta -c unite2025ITS.unique.family.classification -st 0.5 -et 1 -s 0.001 -rank family -prefix unite2025ITS.unique
-	rm unite2025ITS.unique.family.*
+	# "$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank family -maxseqnopergroup 1000 -o unite2025ITS.unique.family.fasta
+	# dnabarcoder.py predict -i unite2025ITS.unique.family.fasta -c unite2025ITS.unique.family.classification -st 0.5 -et 1 -s 0.001 -rank family -higherrank order -prefix unite2025ITS.unique -maxproportion 0.75
+	# dnabarcoder.py predict -i unite2025ITS.unique.family.fasta -c unite2025ITS.unique.family.classification -st 0.5 -et 1 -s 0.001 -rank family -prefix unite2025ITS.unique
+	# rm unite2025ITS.unique.family.*
 
 	#order
-	"$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank order -maxseqnopergroup 1000 -o unite2025ITS.unique.order.fasta
+	# "$dnabarcoder_dir"/aidscripts/selectsequences.py -i unite2025ITS.unique.fasta -c unite2025ITS.unique.classification -rank order -maxseqnopergroup 1000 -o unite2025ITS.unique.order.fasta
 	dnabarcoder.py predict -i unite2025ITS.unique.order.fasta -c unite2025ITS.unique.order.classification -st 0.5 -et 1 -s 0.001 -rank order -higherrank class -prefix unite2025ITS.unique -maxproportion 0.75
 	dnabarcoder.py predict -i unite2025ITS.unique.order.fasta -c unite2025ITS.unique.order.classification -st 0.5 -et 1 -s 0.001 -rank order -prefix unite2025ITS.unique
 	rm unite2025ITS.unique.order.*

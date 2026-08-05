@@ -46,3 +46,9 @@ conda create -p ~/work/conda/envs/itsxrust -c bioconda -c conda-forge itsxrust -
 ```bash
 conda create -p ~/work/conda/envs/p7zip -c bioconda -c conda-forge p7zip --override-channels -y
 ```
+
+## HiTac
+
+```bash
+conda create -p ~/work/conda/envs/hitac -c bioconda hitac --override-channels -y
+```
