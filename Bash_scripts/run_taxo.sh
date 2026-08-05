@@ -122,7 +122,7 @@ fi
 
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
 
-	models=("$hitac_models/*")
+	models=("$hitac_models"/*)
 	for model in "${models[@]}"; do
 		model_name=$(basename "$model")
 
