@@ -46,6 +46,10 @@ if [ ! -d "$hitac_models" ]; then
 	mkdir -p "$hitac_models"
 fi
 
+# We fit the model and register it in the hitac_models folder
+# The threads argument is important because auto
+# evaluation my think there ar more threads available
 hitac-fit \
 	--reference "$unite_utax" \
+	--threads 128 \
 	--classifier "$hitac_models/unite_utax_euk_trimmed_2025_6mers_hitac.pkl"

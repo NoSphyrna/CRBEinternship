@@ -3,9 +3,10 @@
 #SBATCH -o /home/%u/work/job_logs/taxo/output_%j.out
 #SBATCH -e /home/%u/work/job_logs/taxo/error_%j.out
 #SBATCH -t 24:00:00
-#SBATCH --mem=64G
-#SBATCH -c 32
+#SBATCH --mem=128G
+#SBATCH -c 128
 
+# the 128 are for the dnabarcoder threads
 # needs hitac conda env
 
 #Load modules
@@ -13,6 +14,9 @@ module purge
 
 module load bioinfo/VSEARCH/2.29.3
 module load devel/Miniconda/Miniconda3
+module load bioinfo/NCBI_Blast+/2.15.0+ bioinfo/Krona/2.8.1 bioinfo/IQ-TREE/2.4.0 bioinfo/MAFFT/7.505 bioinfo/ClustalOmega/1.2.4
+
+module load bioinfo/dnabarcoder/1.0.7
 
 source activate ~/work/conda/envs/hitac #TODO: check if env exists else create it
 
@@ -24,6 +28,10 @@ unite_utax="$trimmed/utax_reference_dataset_all_19.02.2025_full_ITS_ITS5_ITS4_tr
 euk_utax="$trimmed/SINTAX_EUK_ITS_v2.0_full_ITS_ITS5_ITS4_trimmed.fasta"
 kraken="$databases/kraken"
 dnabarcoder="$databases/dnabarcoder"
+
+dnabar_ref="$dnabarcoder/unite2025ITS.fasta"
+dnabar_class="$dnabarcoder/unite2025ITS.classification"
+dnabar_cutoffs="$dnabarcoder/dnabarcoder/unite2025ITS.unique.cutoffs.json"
 
 working_dir="$HOME/work/Nanopore/"
 run="$working_dir/run1/"
@@ -65,6 +73,28 @@ done
 if [ ! -d "$original" ]; then
 	echo "Invalid argument: $original doesn't exist"
 	exit 1
+fi
+
+if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
+	if [ ! -d "$dnabarcoder" ]; then
+		echo "Invalid argument : $dnabarcoder doesn't exist"
+		exit 1
+	fi
+
+	if [ ! -f "$dnabar_ref" ]; then
+		echo "Reference fasta file '$dnabar_ref' doesn't exist"
+		exit 1
+	fi
+
+	if [ ! -f "$dnabar_class" ]; then
+		echo "Classification file '$dnabar_class' doesn't exist"
+		exit 1
+	fi
+
+	if [ ! -f "$dnabar_cutoffs" ]; then
+		echo "Cutoffs file '$dnabar_cutoffs' doesn't exist"
+		exit 1
+	fi
 fi
 
 if [ ! -d "$taxo" ]; then
@@ -132,4 +162,22 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
 			--reads "$reads_OTU" \
 			--classification "$taxo/taxonomy_OTU_hitac_$model_name.tsv"
 	done
+fi
+
+if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
+
+	# We go to the dnbarcoder folder because the out puts will be created there
+	cd "$dnabarcoder" || exit 1
+
+	# First serach for best match sequences
+	dnabarcoder.py search -i "$reads_OTU" -r unite2025ITS.fasta
+
+	# Then we classify using the cutoffs
+
+	dnabarcoder.py classify -i dnabarcoder/query.unite2024ITS_BLAST.bestmatch -c "$dnabar_class" -cutoffs "$dnabar_cutoffs"
+
+	# # We then can try to visualise it
+	# dnabarcoder.py krona -i dnabarcoder/UNITErelease.CBSITS_BLAST.classified -c CBSITS.current.classification
+	#
+
 fi
