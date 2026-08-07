@@ -14,11 +14,6 @@ module purge
 
 module load bioinfo/VSEARCH/2.29.3
 module load devel/Miniconda/Miniconda3
-module load bioinfo/NCBI_Blast+/2.15.0+ bioinfo/Krona/2.8.1 bioinfo/IQ-TREE/2.4.0 bioinfo/MAFFT/7.505 bioinfo/ClustalOmega/1.2.4
-
-module load bioinfo/dnabarcoder/1.0.7
-
-source activate ~/work/conda/envs/hitac #TODO: check if env exists else create it
 
 #default parameters
 databases="$HOME/work/database"
@@ -152,6 +147,7 @@ fi
 
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
 
+	source activate ~/work/conda/envs/hitac #TODO: check if env exists else create it
 	models=("$hitac_models"/*)
 	for model in "${models[@]}"; do
 		model_name=$(basename "$model")
@@ -165,6 +161,10 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
 fi
 
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
+
+	module load bioinfo/NCBI_Blast+/2.15.0+ bioinfo/Krona/2.8.1 bioinfo/IQ-TREE/2.4.0 bioinfo/MAFFT/7.505 bioinfo/ClustalOmega/1.2.4
+
+	module load bioinfo/dnabarcoder/1.0.7
 
 	# We go to the dnbarcoder folder because the out puts will be created there
 	cd "$dnabarcoder" || exit 1
