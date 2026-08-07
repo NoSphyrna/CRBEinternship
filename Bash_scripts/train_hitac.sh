@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH -J run_basecalling
-#SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
-#SBATCH -e /home/%u/work/job_logs/dorado/error_%j.out
+#SBATCH -J train_hitac
+#SBATCH -o /home/%u/work/job_logs/hitac/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/hitac/error_%j.out
 #SBATCH -t 48:00:00
-#SBATCH --mem=128
+#SBATCH --mem=256G
 #SBATCH -c 128
 
 #Load modules
