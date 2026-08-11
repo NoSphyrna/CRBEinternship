@@ -3,7 +3,7 @@
 #SBATCH -o /home/%u/work/job_logs/taxo/output_%j.out
 #SBATCH -e /home/%u/work/job_logs/taxo/error_%j.out
 #SBATCH -t 24:00:00
-#SBATCH --mem=128G
+#SBATCH --mem=32G
 #SBATCH -c 128
 
 # the 128 are for the dnabarcoder threads
@@ -170,14 +170,10 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
 	cd "$dnabarcoder" || exit 1
 
 	# First serach for best match sequences
-	dnabarcoder.py search -i "$reads_OTU" -r unite2025ITS.fasta
+	dnabarcoder.py search -i "$reads_OTU" -r unite2025ITS.fasta -o "$taxo"
 
 	# Then we classify using the cutoffs
 
-	dnabarcoder.py classify -i dnabarcoder/query.unite2024ITS_BLAST.bestmatch -c "$dnabar_class" -cutoffs "$dnabar_cutoffs"
-
-	# # We then can try to visualise it
-	# dnabarcoder.py krona -i dnabarcoder/UNITErelease.CBSITS_BLAST.classified -c CBSITS.current.classification
-	#
+	dnabarcoder.py classify -i "$taxo"/"$(basename "$reads_OTU")".unite2025ITS_BLAST.bestmatch -c "$dnabar_class" -cutoffs "$dnabar_cutoffs" -o "$taxo"
 
 fi
