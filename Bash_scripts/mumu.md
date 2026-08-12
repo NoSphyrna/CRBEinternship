@@ -50,6 +50,12 @@ Test it :
 mumu -h
 ```
 
+This only make it temporary, to make it permanent add the export to the ~/.bashrc file :
+
+```bash
+echo 'export PATH="$HOME/work/app/mumu-1.1.4:$PATH"' >> ~/.bashrc
+```
+
 bonus : adding mumu to the man
 
 First create a man folder :
@@ -69,6 +75,12 @@ Add the new man folder to the MANPATH
 ```bash
 export MANPATH="$HOME/.local/share/man:$MANPATH"
 source ~/.bashrc
+```
+
+permanent way :
+
+```bash
+echo 'export MANPATH="$HOME/.local/share/man:$MANPATH"' >> ~/.bashrc
 ```
 
 Then the final test
