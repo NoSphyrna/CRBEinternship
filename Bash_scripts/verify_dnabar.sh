@@ -12,7 +12,6 @@
 #Load modules
 module purge
 
-module load bioinfo/VSEARCH/2.29.3
 module load devel/Miniconda/Miniconda3
 
 #default parameters
@@ -28,7 +27,7 @@ taxo="$run/taxo/"
 dnabar_ref="$dnabarcoder/unite2025ITS.fasta"
 dnabar_class="$dnabarcoder/unite2025ITS.classification"
 dnabar_cutoffs="$dnabarcoder/dnabarcoder/unite2025ITS.unique.cutoffs.json"
-dnabar_classified="$taxo/$(basename "$reads_OTU").unite2025ITS_BLAST.classified"
+dnabar_classified="$taxo/$(basename "$reads_OTU" .fasta).unite2025ITS_BLAST.classified"
 
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
 source "$SLURM_SUBMIT_DIR/config_databases.cfg"

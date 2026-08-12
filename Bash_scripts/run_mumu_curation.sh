@@ -53,11 +53,12 @@ sed "s/$ID/OTU/" "$OTU_table" >"$OTU_TABLE_form"
 cp "$reads_OTU" "$OTU_SEQ"
 
 # We then create the match list
+# previous --id 0.84
 vsearch \
 	--usearch_global "$OTU_SEQ" \
 	--db "$OTU_SEQ" \
 	--self \
-	--id 0.84 \
+	--id 0.95 \
 	--iddef 1 \
 	--userfields query+target+id \
 	--maxaccepts 0 \
@@ -72,4 +73,8 @@ mumu \
 	--otu_table "$OTU_TABLE_form" \
 	--match_list "$MATCH_LIST" \
 	--log "$mumu_output/MUMU_merging_stats.txt" \
-	--new_otu_table "$OTU_TABLE_MUMU"
+	--new_otu_table "$OTU_TABLE_MUMU" \
+	--minimum_match 95 \
+	--minimum_ratio 1 \
+	--minimum_ratio_type "min" \
+	--minimum_relative_cooccurence 0.90

@@ -34,6 +34,7 @@ run="$working_dir/run1/"
 proname_dir="$working_dir/proname/run1/"
 reads_OTU="$proname_dir/rep_seqs.fasta"
 taxo="$run/taxo/"
+taxo_stats="$taxo/stats/"
 
 hitac_models="$HOME/work/HiTaC_models/"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
@@ -96,9 +97,22 @@ if [ ! -d "$taxo" ]; then
 	mkdir -p "$taxo"
 fi
 
+if [ ! -d "$taxo_stats" ]; then
+	mkdir -p "$taxo_stats"
+fi
+
+# The output file for stats of the different classifiers
+STATS="$taxo_stats/classifiers_ressource_usage.tsv"
+
+# First we write the header of the stat file : (with -e to translat \t as tab)
+echo -e "id\tcommand\ttime(s)\tuser(s)\tsys(s)\tCPU_time\tavgMEM(kB)\tmaxMEM(kB)\tswaps\tdata(kB)\tjob_cores\tjob_mem" >"$STATS"
+
+# Format for time :
+TIMEFMT="%C\t%e\t%U\t%S\t%P\t%K\t%M\t%W\t%D"
+
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 	echo "Running vsearch assignation with vsearch on: $reads_OTU, with unite"
-	vsearch --usearch_global "$reads_OTU" \
+	/usr/bin/time -o "$STATS" -a -f "vsearch_unite\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" vsearch --usearch_global "$reads_OTU" \
 		--dbmask none \
 		--qmask none \
 		--rowlen 0 \
@@ -114,7 +128,7 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 	# --threads $NB_CORES \ by default it uses all threads available so it's not necessary
 
 	echo "Running vsearch assignation with vsearch on: $reads_OTU, with eukaryome"
-	vsearch --usearch_global "$reads_OTU" \
+	/usr/bin/time -o "$STATS" -a -f "vsearch_euk\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" vsearch --usearch_global "$reads_OTU" \
 		--dbmask none \
 		--qmask none \
 		--rowlen 0 \
@@ -130,14 +144,14 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "vsearch" ]; then
 fi
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "sintax" ]; then
 	echo "Running vsearch assignation with sintax on: $reads_OTU, with unite"
-	vsearch --sintax "$reads_OTU" \
+	/usr/bin/time -o "$STATS" -a -f "sintax_unite\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" vsearch --sintax "$reads_OTU" \
 		--db "$unite_utax" \
 		--sintax_cutoff 0.5 \
 		--tabbedout "$taxo/taxonomy_OTU_sintax_unite.tsv" \
 		--strand plus
 
 	echo "Running vsearch assignation with sintax on: $reads_OTU, with eukaryome"
-	vsearch --sintax "$reads_OTU" \
+	/usr/bin/time -o "$STATS" -a -f "vsearch_euk\t$TIMEFMT" vsearch --sintax "$reads_OTU" \
 		--db "$euk_utax" \
 		--sintax_cutoff 0.5 \
 		--tabbedout "$taxo/taxonomy_OTU_sintax_euk.tsv" \
@@ -153,11 +167,12 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "hitac" ]; then
 		model_name=$(basename "$model")
 
 		echo "Running hitac assignation with model $model_name on: $reads_OTU"
-		hitac-classify \
+		/usr/bin/time -o "$STATS" -a -f "hitac_$model_name\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" hitac-classify \
 			--classifier "$model" \
 			--reads "$reads_OTU" \
 			--classification "$taxo/taxonomy_OTU_hitac_$model_name.tsv"
 	done
+	source deactivate
 fi
 
 if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
@@ -170,10 +185,10 @@ if [ "$METHOD" = "all" ] || [ "$METHOD" = "dnabarcoder" ]; then
 	cd "$dnabarcoder" || exit 1
 
 	# First serach for best match sequences
-	dnabarcoder.py search -i "$reads_OTU" -r unite2025ITS.fasta -o "$taxo"
+	/usr/bin/time -o "$STATS" -a -f "dnabarcoder_search\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" dnabarcoder.py search -i "$reads_OTU" -r unite2025ITS.fasta -o "$taxo"
 
 	# Then we classify using the cutoffs
 
-	dnabarcoder.py classify -i "$taxo"/"$(basename "$reads_OTU")".unite2025ITS_BLAST.bestmatch -c "$dnabar_class" -cutoffs "$dnabar_cutoffs" -o "$taxo"
+	/usr/bin/time -o "$STATS" -a -f "dnabarcoder_classify\t$TIMEFMT\t$SLURM_CPUS_PER_TASK\t$SLURM_MEM_PER_NODE" dnabarcoder.py classify -i "$taxo"/"$(basename "$reads_OTU" .fasta)".unite2025ITS_BLAST.bestmatch -c "$dnabar_class" -cutoffs "$dnabar_cutoffs" -o "$taxo"
 
 fi
