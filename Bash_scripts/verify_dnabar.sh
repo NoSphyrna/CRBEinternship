@@ -67,4 +67,4 @@ module load bioinfo/dnabarcoder/1.0.7
 # We go to the dnbarcoder folder because the out puts will be created there
 cd "$dnabarcoder" || exit 1
 
-dnabarcoder.py verify -i "$dnabar_classified" -c "$dnabar_class" -r unite2025ITS.fasta -f "$reads_OTU" -rank -cutoffs "$dnabar_cutoffs" -method cutoff -o "$taxo"
+dnabarcoder.py verify -i "$dnabar_classified" -c "$dnabar_class" -r unite2025ITS.fasta -f "$reads_OTU" -cutoffs "$dnabar_cutoffs" -method cutoff -o "$taxo"
