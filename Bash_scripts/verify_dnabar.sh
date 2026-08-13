@@ -2,7 +2,7 @@
 #SBATCH -J verify_dnabar
 #SBATCH -o /home/%u/work/job_logs/verify/output_%j.out
 #SBATCH -e /home/%u/work/job_logs/verify/error_%j.out
-#SBATCH -t 24:00:00
+#SBATCH -t 96:00:00
 #SBATCH --mem=16G
 #SBATCH -c 8
 
