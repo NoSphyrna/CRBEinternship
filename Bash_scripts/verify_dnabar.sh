@@ -3,8 +3,8 @@
 #SBATCH -o /home/%u/work/job_logs/verify/output_%j.out
 #SBATCH -e /home/%u/work/job_logs/verify/error_%j.out
 #SBATCH -t 24:00:00
-#SBATCH --mem=32G
-#SBATCH -c 128
+#SBATCH --mem=16G
+#SBATCH -c 8
 
 # the 128 are for the dnabarcoder threads
 # needs hitac conda env
@@ -67,4 +67,4 @@ module load bioinfo/dnabarcoder/1.0.7
 # We go to the dnbarcoder folder because the out puts will be created there
 cd "$dnabarcoder" || exit 1
 
-dnabarcoder.py verify -i "$dnabar_classified" -c "$dnabar_class" -r unite2025ITS.fasta -f "$reads_OTU" -cutoffs "$dnabar_cutoffs" -method cutoff -o "$taxo"
+dnabarcoder.py verify -i "$dnabar_classified" -c "$dnabar_class" -r unite2025ITS.fasta -f "$reads_OTU" -cutoffs "$dnabar_cutoffs" -method cutoff -o "$taxo" -ncpus 8
