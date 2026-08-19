@@ -32,7 +32,7 @@ library(tibble)
 # ============== Set Workspace accordingly ======== #
 # Modify here where tou want to work
 getwd()
-setwd("Database/")
+setwd("../../Database/")
 
 # ============= Utility Functoins ==================#
 
@@ -260,6 +260,39 @@ plot_trophic_abundance_per_sample <- function(
   return(p)
 }
 
+read_pq_corr <- function(path) {
+  OTU_table <- read.csv(
+    paste0(path, "/otu_table.csv"),
+    header = TRUE,
+    row.names = 1,
+    sep = "\t"
+  )
+  TAX_table <- read.csv(
+    paste0(
+      path,
+      "/tax_table.csv"
+    ),
+    header = TRUE,
+    row.names = 1,
+    sep = "\t"
+  ) |>
+    mutate_all(as.character) # taxa needs to be char
+
+  ## Get the OTU table (as a matrix for the phyloseq object)
+  OTU <- otu_table(as.matrix(OTU_table), taxa_are_rows = TRUE)
+
+  ## Get the TAX table (as a matrix for the phyloseq object)
+  TAX <- tax_table(
+    TAX_table |>
+      mutate_all(as.character) |>
+      as.matrix()
+  )
+
+  PHYLOSEQ <- phyloseq(OTU, TAX)
+
+  return(PHYLOSEQ)
+}
+
 # ================ Workflow for assigning traits on OTUs from samples ================= #
 
 # A test on Tedersoo full sintax
@@ -464,9 +497,8 @@ table_traits <- add_trophicMode_ft(table_traits)
 
 # ============= If previous phyloseq regstered ============= #
 
-table_traits <- read_pq(
-  path = "phyloseq_traits/pq_Tedersoo_ITS_full_vsearch_FungalTraits_enhanced_FunGuild",
-  taxa_are_rows = TRUE
+table_traits <- read_pq_corr(
+  path = "phyloseq_traits/pq_Tedersoo_ITS_full_vsearch_FungalTraits_enhanced_FunGuild"
 )
 
 cols_to_delete <- c(
@@ -516,7 +548,7 @@ estimate_assignation_per_sample(
 )
 # ==================== Test of unasigned taxa ============================== #
 
-df_traits <- as.data.frame(tax_table(data_traits))
+df_traits <- as.data.frame(tax_table(table_traits))
 df_traits <- add_trophicMode_ft(df_traits)
 no_trophic <- df_traits |>
   filter(is.na(ft_trophicMode) & !is.na(fg_trophicMode)) |>
@@ -545,8 +577,12 @@ head(df_traits$cons_trophicMode_agreement)
 library(VennDiagram)
 
 X <- list(
-  FunGuild = rownames(df_traits |> filter(!is.na(fg_trophicMode))),
-  FungalTraits = rownames(df_traits |> filter(!is.na(ft_trophicMode)))
+  FunGuild = df_traits |>
+    filter(!is.na(fg_trophicMode)) |>
+    pull(fg_trophicMode),
+  FungalTraits = df_traits |>
+    filter(!is.na(ft_trophicMode)) |>
+    pull(ft_trophicMode)
 )
 
 getwd()
