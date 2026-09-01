@@ -1,17 +1,15 @@
 # ============== Libraries ============ #
-library(stringr)
-library(tibble)
 library(stringi)
 library(vegan)
 library(compositions)
 library(zCompositions)
 library(tidyverse)
-library(phyloseq)
 library(conflicted)
 conflicts_prefer(dplyr::select)
 library(fs)
 library(gtools)
-
+library(taxinfo)
+library(iNEXT)
 
 getwd()
 setwd("../../results/")
@@ -1197,7 +1195,7 @@ get_dnabarcoder_summary(
 )
 
 ## ================ rarefaction ================ ##
-
+library(scales)
 pacbio_otu <- get_otu(
   "PacBio/OTU/OTU_table_LULU.txt",
   "pacbio"
@@ -1211,11 +1209,72 @@ ill_otu <- get_otu(
   "illumina"
 )[[1]]
 
+
 pacbio_otu_matrix <- pacbio_otu |>
   remove_rownames() |>
   column_to_rownames("OTU") |>
   select(-c("total_abundances")) |>
   as.matrix()
+
+
+get_shanono_rarecurve <- function(otu_table) {
+  otu_matrix <- otu_table |>
+    remove_rownames() |>
+    column_to_rownames("OTU") |>
+    select(-c("total_abundances"))
+  otu_rare <- iNEXT(
+    otu_matrix,
+    q = 1,
+    datatype = "abundance",
+    se = FALSE,
+    knots = 15
+  )
+  return(otu_rare)
+}
+
+
+pacbio_shan_rare <- get_shanono_rarecurve(pacbio_otu)
+nano_shan_rare <- get_shanono_rarecurve(nano_otu)
+ill_shan_rare <- get_shanono_rarecurve(ill_otu)
+
+ggiNEXT(
+  pacbio_shan_rare,
+  type = 1,
+  se = FALSE,
+  facet.var = "None",
+  color.var = "Assemblage",
+  grey = FALSE
+)
+png(
+  'figs/pacbio_shannon_rare.png',
+  height = 1080,
+  width = 1920,
+  res = 300
+)
+
+plot(pacbio_shan_rare)
+dev.off()
+png(
+  'figs/nano_shannon_rare.png',
+  height = 1080,
+  width = 1920,
+  res = 300
+)
+
+plot(nano_shan_rare)
+dev.off()
+
+
+png(
+  'figs/ill_shannon_rare.png',
+  height = 1080,
+  width = 1920,
+  res = 300
+)
+
+plot(ill_shan_rare)
+dev.off()
+
 
 get_rarecurve <- function(otu_table, techname, step = 200) {
   otu_matrix <- otu_table |>
@@ -1261,19 +1320,32 @@ ggplot(
     )
   ) +
   labs(
-    x = "Number of reads",
-    y = "Number of observed OTU",
-    color = "Techno / Type"
+    x = "Nombre de reads",
+    y = "Nombre d'OTU observés",
+    color = "Techno - type"
   ) +
-  xlim(0, 1e5) +
-  ylim(0, 5000) +
-  theme_minimal()
+  scale_x_continuous(
+    limits = c(0, 1e5),
+    labels = label_number(scale = 1e-3, suffix = "k") # 20 000 -> 20k
+  ) +
+  scale_y_continuous(limits = c(0, 5000)) +
+  theme_minimal(base_size = 16) + # augmente la taille de base de tout le texte
+  theme(
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm"),
+    strip.text = element_text(size = 16, face = "bold"), # titres des facettes
+  )
 
 
 ggsave(
-  "~/Dext2/StageCRBE/results/fig/rarefaction_lim.png",
-  width = 20,
-  height = 10
+  "~/Dext2/StageCRBE/results/fig/rarefaction_lim_2.png",
+  width = 24,
+  height = 12,
+  units = "cm",
+  dpi = 600
 )
 
 ## ====== Venn diagrams ======= #
@@ -1368,6 +1440,130 @@ pacbio_otu_dnabarcoder <- get_otu_taxo_dnabarcoder(
   "pacbio",
   "unite"
 )
+
+# Test of matching taxonomies
+
+matching_unite <- merge(
+  pacbio_otu_sintax_unite |>
+    select(c("OTU", "Genus")) |>
+    mutate(Genus_sintax = Genus) |>
+    select(-c("Genus")),
+  pacbio_otu_vsearch_unite |>
+    select(c("OTU", "Genus")) |>
+    mutate(Genus_vsearch = Genus) |>
+    select(-c("Genus")),
+  by = "OTU"
+) |>
+  mutate(
+    match = (ifelse(
+      !is.na(Genus_sintax) &
+        !is.na(Genus_vsearch) &
+        Genus_sintax == Genus_vsearch,
+      1,
+      0
+    )),
+    not_match = (ifelse(
+      !is.na(Genus_sintax) &
+        !is.na(Genus_vsearch) &
+        Genus_sintax != Genus_vsearch,
+      1,
+      0
+    )),
+    na = (ifelse(
+      is.na(Genus_sintax) |
+        is.na(Genus_vsearch),
+      1,
+      0
+    )),
+    xor_na = (ifelse(
+      (is.na(Genus_sintax) |
+        is.na(Genus_vsearch)) &
+        !(is.na(Genus_sintax) &
+          is.na(Genus_vsearch)),
+      1,
+      0
+    ))
+  )
+
+percent_matching <- sum(matching_unite$match) /
+  nrow(matching_unite) *
+  100
+
+percent_matching
+percent_not_matching <- sum(matching_unite$not_match) /
+  nrow(matching_unite) *
+  100
+percent_not_matching
+percent_na <- sum(matching_unite$na) /
+  nrow(matching_unite) *
+  100
+percent_na
+percent_xor_na <- sum(matching_unite$xor_na) /
+  nrow(matching_unite) *
+  100
+percent_xor_na
+
+matching_euk <- merge(
+  pacbio_otu_sintax_euk |>
+    select(c("OTU", "Genus")) |>
+    mutate(Genus_sintax = Genus) |>
+    select(-c("Genus")),
+  pacbio_otu_vsearch_euk |>
+    select(c("OTU", "Genus")) |>
+    mutate(Genus_vsearch = Genus) |>
+    select(-c("Genus")),
+  by = "OTU"
+) |>
+  mutate(
+    match = (ifelse(
+      !is.na(Genus_sintax) &
+        !is.na(Genus_vsearch) &
+        Genus_sintax == Genus_vsearch,
+      1,
+      0
+    )),
+    not_match = (ifelse(
+      !is.na(Genus_sintax) &
+        !is.na(Genus_vsearch) &
+        Genus_sintax != Genus_vsearch,
+      1,
+      0
+    )),
+    na = (ifelse(
+      is.na(Genus_sintax) |
+        is.na(Genus_vsearch),
+      1,
+      0
+    )),
+    xor_na = (ifelse(
+      (is.na(Genus_sintax) |
+        is.na(Genus_vsearch)) &
+        !(is.na(Genus_sintax) &
+          is.na(Genus_vsearch)),
+      1,
+      0
+    ))
+  )
+
+percent_matching <- sum(matching_unite$match) /
+  nrow(matching_unite) *
+  100
+
+percent_matching
+percent_not_matching <- sum(matching_unite$not_match) /
+  nrow(matching_unite) *
+  100
+percent_not_matching
+percent_na <- sum(matching_unite$na) /
+  nrow(matching_unite) *
+  100
+percent_na
+percent_xor_na <- sum(matching_unite$xor_na) /
+  nrow(matching_unite) *
+  100
+percent_xor_na
+
+
 X <- list(
   SintaxEuk = pacbio_otu_sintax_euk |>
     dplyr::filter(!is.na(Genus)) |>
@@ -1384,53 +1580,55 @@ X <- list(
   VsearchUnite = pacbio_otu_vsearch_unite |>
     dplyr::filter(!is.na(Genus)) |>
     pull(Genus) |>
-    unique(),
-  DnabarcoderUnite = pacbio_otu_dnabarcoder |>
-    dplyr::filter(!is.na(Genus)) |>
-    pull(Genus) |>
     unique()
+  # DnabarcoderUnite = pacbio_otu_dnabarcoder |>
+  #   dplyr::filter(!is.na(Genus)) |>
+  #   pull(Genus) |>
+  #   unique()
 )
 grid.newpage()
 
 venn_plot <- venn.diagram(
   x = X,
   category.names = c(
-    "Sintax Euk",
-    "Sintax Unite",
-    "Vsearch Euk",
-    "Vsearch Unite",
-    "Dnabarcoder Unite"
+    "SINTAX - EUK",
+    "SINTAX - Unite",
+    "Vsearch - EUK",
+    "Vsearch - Unite" #,
+    # "Dnabarcoder Unite"
   ),
   filename = NULL,
   output = TRUE,
   imagetype = "png",
 
   lwd = 1,
-  col = c("orange", 'orangered', 'orchid', 'mediumpurple', 'palegreen'),
+  col = c("orange", 'orangered', 'orchid', 'mediumpurple'), #, 'palegreen'),
   fill = c(
     alpha("orange", 0.5),
     alpha("orangered", 0.5),
     alpha('orchid', 0.5),
-    alpha("mediumpurple", 0.5),
-    alpha("palegreen", 0.5)
+    alpha("mediumpurple", 0.5) #,
+    # alpha("palegreen", 0.5)
   ),
 
   cex = 0.5,
   fontfamily = "sans",
   ext.text = FALSE,
 
-  cat.cex = 0.3,
+  cat.cex = 1,
+  cat.dist = 0.22,
   # cat.pos = c(-27, 27),
   cat.default.pos = "outer",
   cat.fontfamily = "sans",
-  cat.col = c("orange", 'orangered', 'orchid', 'mediumpurple', 'palegreen')
+  cat.col = c("orange", 'orangered', 'orchid', 'mediumpurple'), #, 'palegreen'),
+  margin = 0.1
 )
 
 
 grid.draw(venn_plot)
 
 png(
-  'fig/venn_pacbio_genus.png',
+  'figs/venn_pacbio_nodna_genus.png',
   height = 1080,
   width = 1920,
   res = 300
@@ -1499,11 +1697,13 @@ venn_plot <- venn.diagram(
   fontfamily = "sans",
   ext.text = FALSE,
 
-  cat.cex = 0.3,
+  cat.cex = 1,
+  cat.dist = 0.06,
   # cat.pos = c(-27, 27),
   cat.default.pos = "outer",
   cat.fontfamily = "sans",
-  cat.col = c('darkgoldenrod', 'steelblue', 'orchid')
+  cat.col = c('darkgoldenrod', 'steelblue', 'orchid'),
+  margin = 0.05
 )
 
 
@@ -2021,7 +2221,7 @@ graph_aitch <- as.data.frame(pcoa_aitch$points) |>
 
 ggplot(graph_aitch, aes(Axis1, Axis2, color = Technology)) +
   geom_point(size = 3) +
-  stat_ellipse() +
+  # stat_ellipse() +
   scale_color_manual(
     values = c(
       "Illumina" = "darkgoldenrod1",
@@ -2029,24 +2229,37 @@ ggplot(graph_aitch, aes(Axis1, Axis2, color = Technology)) +
       "Nanopore" = "steelblue1"
     )
   ) +
-  theme_minimal() +
   labs(
     title = "PCoA Aitchison",
-    x = "Axis1",
-    y = "Axis2",
+    x = "Axe 1",
+    y = "Axe 2",
+    color = "Technologie",
     subtitle = paste0(
-      "Axis1=",
+      "Axe 1 = ",
       var_expl_aitch[1],
-      "%, Axis2=",
+      "%, Axe 2 = ",
       var_expl_aitch[2],
       "%"
     )
+  ) +
+
+  theme_minimal(base_size = 16) +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),
+    plot.subtitle = element_text(size = 14),
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm")
   )
 
 ggsave(
-  "~/Dext2/StageCRBE/results/fig/PCoA_aitchison_techno_sintax_euk.png",
-  width = 20,
-  height = 10
+  "~/Dext2/StageCRBE/results/fig/PCoA_aitchison_techno_sintax_euk_2.pdf",
+  width = 30,
+  height = 16,
+  units = "cm",
+  dpi = 600
 )
 
 # ========= PCoA Bray-Curtis ============= #
@@ -2067,7 +2280,7 @@ graph_bray <- as.data.frame(pcoa_bray$points) |>
 
 ggplot(graph_bray, aes(Axis1, Axis2, color = Technology)) +
   geom_point(size = 3) +
-  stat_ellipse() +
+  # stat_ellipse() +
   scale_color_manual(
     values = c(
       "Illumina" = "darkgoldenrod1",
@@ -2075,24 +2288,37 @@ ggplot(graph_bray, aes(Axis1, Axis2, color = Technology)) +
       "Nanopore" = "steelblue1"
     )
   ) +
-  theme_minimal() +
   labs(
     title = "PCoA Bray-Curtis",
-    x = "Axis1",
-    y = "Axis2",
+    x = "Axe 1",
+    y = "Axe 2",
+    color = "Technologie",
     subtitle = paste0(
-      "Axis1=",
+      "Axe 1 = ",
       var_expl_bray[1],
-      "%, Axis2=",
+      "%, Axe 2 = ",
       var_expl_bray[2],
       "%"
     )
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),
+    plot.subtitle = element_text(size = 14),
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm")
   )
 
+
 ggsave(
-  "~/Dext2/StageCRBE/results/fig/PCoA_bray_techno_sintax_euk.png",
-  width = 20,
-  height = 10
+  "~/Dext2/StageCRBE/results/fig/PCoA_bray_techno_sintax_euk.pdf",
+  width = 30,
+  height = 16,
+  units = "cm",
+  dpi = 600
 )
 
 # ============= PermANOVA =============== #
@@ -2291,4 +2517,703 @@ ggsave(
   "~/Dext2/StageCRBE/results/fig/boxplot_shannon_pacbio_site_type.png",
   width = 20,
   height = 10
+)
+
+## get otu and tax for phyloseq
+
+nano_otu_sintax_euk <- get_otu_taxo_sintax(
+  "Nanopore/OTU/OTU_table_mumu.tsv",
+  "Nanopore/taxo/taxonomy_OTU_sintax_euk.tsv",
+  "nanopore",
+  "euk"
+)
+pacbio_otu_sintax_euk <- get_otu_taxo_sintax(
+  "PacBio/OTU/OTU_table_LULU.txt",
+  "PacBio/taxo/taxonomy_OTU_sintax_euk.tsv",
+  "pacbio",
+  "euk"
+)
+ill_otu_sintax_euk <- get_otu_taxo_sintax(
+  "Illumina/OTU/OTU_table_ITS1_OTU97_VSEARCH_LULU.txt",
+  "Illumina/taxo/taxonomy_OTU_sintax_euk.tsv",
+  "illumina",
+  "euk"
+)
+
+# =============== functions for taxinfo ================= #
+
+# Get a phyloseq object from registered files with the "write_pq" function
+# Note this a corrected version of the already existing read_pq function since it
+# didn't work properly
+read_pq_corr <- function(path) {
+  OTU_table <- read.csv(
+    paste0(path, "/otu_table.csv"),
+    header = TRUE,
+    row.names = 1,
+    sep = "\t"
+  )
+  TAX_table <- read.csv(
+    paste0(
+      path,
+      "/tax_table.csv"
+    ),
+    header = TRUE,
+    row.names = 1,
+    sep = "\t"
+  ) |>
+    mutate_all(as.character) # taxa needs to be char
+
+  ## Get the OTU table (as a matrix for the phyloseq object)
+  OTU <- otu_table(as.matrix(OTU_table), taxa_are_rows = TRUE)
+
+  ## Get the TAX table (as a matrix for the phyloseq object)
+  TAX <- tax_table(
+    TAX_table |>
+      mutate_all(as.character) |>
+      as.matrix()
+  )
+
+  PHYLOSEQ <- phyloseq(OTU, TAX)
+
+  return(PHYLOSEQ)
+}
+
+
+# Normalise FungalTraits trophicMode (adapted from TaxInfo)
+# This reduces the traits to three categories to match the trophicMode from FunGuild
+ft_to_trophic_mode <- function(x) {
+  dplyr::case_when(
+    x %in%
+      c(
+        "algal_decomposer", # new
+        "animal_decomposer", # new
+        "dung_saprotroph",
+        "fungal_decomposer", # new
+        "litter_saprotroph",
+        "myxomycete_decomposer", # new
+        "nectar/tap_saprotroph", # new
+        "pollen_saprotroph",
+        "resin_saprotroph", # new
+        "rock-inhabiting", # new
+        "soil_saprotroph",
+        "unsepcified_saprotroph", # new
+        "unspecified_saprotroph",
+        "wood_saprotroph"
+      ) ~ "Saprotroph",
+    x %in%
+      c(
+        "algal_parasite",
+        "algivorous/protistivorous", # new
+        "animal_parasite",
+        "arthropod_parasite", # new
+        "bacterivorous", # new
+        "bryophilous", # new
+        "fish_parasite", # new
+        "invertebrate_parasite", # new
+        "lichen_parasite",
+        "moss_parasite", # new
+        "mycoparasite",
+        "nematophagous", # new
+        "plant_pathogen",
+        "protistan_parasite",
+        "sooty_mold",
+        "unspecified_pathotroph"
+      ) ~ "Pathotroph",
+    x %in%
+      c(
+        "algal_ectosymbiont", # new
+        "algal_symbiont", # new
+        "animal-associated",
+        "animal_endosymbiont",
+        "arbuscular_mycorrhizal",
+        "arthropod-associated",
+        "coral-associated", # new
+        "ectomycorrhizal",
+        "epiphyte",
+        "ericoid_mycorrhizal", # new
+        "foliar_endophyte",
+        "insect-associated", # new
+        "invertebrate-associated", # new
+        "lichenized",
+        "liverwort-associated", # new
+        "moss_symbiont",
+        "root-associated", # new
+        "root_endophyte",
+        "root_endophyte_dark_septate", # new
+        "termite_symbiont", # new
+        "unspecified_symbiotroph",
+        "vertebrate-associated" # new
+      ) ~ "Symbiotroph",
+    is.na(x) |
+      x %in% c("unspecified", "", "0", "fatty_acid_producer") ~ NA_character_, # new
+    .default = "Other"
+  )
+}
+
+# Add column trophicMode to a table with traits assigned by fungaltraits enhanced table
+add_trophicMode_ft <- function(data_traits) {
+  table_traits <- as.data.frame(tax_table(data_traits))
+  table_traits <- table_traits |>
+    mutate(
+      tmp_primary_troph = ft_to_trophic_mode(ft_primary_lifestyle),
+      tmp_secondary_troph = ft_to_trophic_mode(ft_Secondary_lifestyle),
+      ft_trophicMode = ifelse(
+        is.na(tmp_primary_troph) |
+          is.na(tmp_secondary_troph) |
+          tmp_primary_troph == tmp_secondary_troph,
+        coalesce(tmp_primary_troph, tmp_secondary_troph),
+        paste(tmp_primary_troph, tmp_secondary_troph, sep = "-")
+      )
+    ) |>
+    select(-c(tmp_primary_troph, tmp_secondary_troph))
+  tax_table(data_traits) <- tax_table(as.matrix(table_traits))
+  return(data_traits)
+}
+
+# This function adds a trophic column based on the following priority:
+# Mycorrhizal > Pathogen > Endophyte > Saprotroph > Other
+# NA is captured as "Unknown"
+# For the myco_type column, the ericoid table is prioritised else it's all
+# the mycotypes given in fg_guild
+fg_to_trophic_plant <- function(data_traits) {
+  table_traits <- as.data.frame(tax_table(data_traits))
+  table_traits <- table_traits |>
+    mutate(
+      plant_trophic = case_when(
+        !is.na(er_guild) | str_detect(fg_guild, "mycorrhizal") ~ "Mycorrhizal",
+        is.na(fg_guild) ~ "Unknown", #placed her to avoid unnecessary comparisons
+        str_detect(fg_guild, "plant_pathogen|plant_parasite") ~ "Pathogen",
+        str_detect(fg_guild, "endophyte") ~ "Endophyte",
+        str_detect(fg_guild, "saprotroph") ~ "Saprotroph",
+        TRUE ~ "Other"
+      ),
+      myco_type = case_when(
+        !is.na(er_guild) &
+          str_detect(er_guild, "endophyte") ~ "ericoid_mycorrhizal",
+        !is.na(er_guild) ~ er_guild,
+        TRUE ~ fg_guild |>
+          str_split("-") |>
+          map_chr(
+            ~ {
+              myco <- str_subset(.x, "mycorrhizal")
+              if (length(myco) == 0) {
+                NA_character_
+              } else {
+                paste(myco, collapse = "-")
+              }
+            }
+          )
+      )
+    )
+  tax_table(data_traits) <- tax_table(as.matrix(table_traits))
+  return(data_traits)
+}
+
+
+# Allows to clean the column guild from FunGuild traits
+# directly from a phyloseq object
+# e.g. "Endophyte-|Plant Pathogen|" -> "endophyte-plant_pathogen"
+clean_guild <- function(data_traits) {
+  table_traits <- as.data.frame(tax_table(data_traits))
+  new_table <- table_traits |>
+    mutate(
+      fg_guild = fg_guild |>
+        str_squish() |>
+        str_to_lower() |>
+        str_replace_all(" ", "_") |>
+        str_replace_all("\\|", "")
+    )
+  tax_table(data_traits) <- tax_table(as.matrix(new_table))
+  return(data_traits)
+}
+
+
+# test_nano <- nano_otu_sintax_euk |>
+#   dplyr::filter(Kingdom == "Fungi")
+# rm(test_nano)
+# unique(test_nano$Kingdom)
+# unique(nano_otu_sintax_euk$Kingdom)
+# Here we prepare the tables with only Genus and abundances
+# We also filter to get only fungi
+get_pq <- function(otu_table) {
+  otu_mat <- otu_table |>
+    dplyr::filter(Kingdom == "Fungi") |>
+    dplyr::select(c(
+      "OTU",
+      "C1",
+      "C1.6",
+      "C2",
+      "C2.12",
+      "C3",
+      "C3.7",
+      "C4",
+      "C4.15",
+      "C5",
+      "C5.5",
+      "C6",
+      "C6.1",
+      "C7",
+      "C7.3",
+      "C8",
+      "C8.6",
+      "C9",
+      "C9.1",
+      "C10",
+      "C10.14",
+      "C11",
+      "C11.16",
+      "C12",
+      "C12.16",
+      "M1",
+      "M1.15",
+      "M2",
+      "M2.10",
+      "M3",
+      "M3.3",
+      "M4",
+      "M4.14",
+      "M5",
+      "M5.11",
+      "M6",
+      "M6.1",
+      "M7",
+      "M7.5",
+      "M8",
+      "M8.5",
+      "M9",
+      "M9.6",
+      "M10",
+      "M10.12",
+      "M11",
+      "M11.16",
+      "M12",
+      "M12.3",
+      "V1",
+      "V1.3",
+      "V2",
+      "V2.5",
+      "V3",
+      "V3.16",
+      "V4",
+      "V5",
+      "V5.12",
+      "V6",
+      "V6.5",
+      "V7",
+      "V7.15",
+      "V8",
+      "V8.15",
+      "V9",
+      "V9.4",
+      "V10",
+      "V10.11",
+      "V11",
+      "V11.4",
+      "V12",
+      "V12.2",
+    )) |>
+    tibble::column_to_rownames("OTU") |>
+    as.matrix() |>
+    t() |>
+    decostand(method = "total") |>
+    t()
+  ## here OTU names are the row so we have to set taxa_are_rows to TRUE
+  OTU <- otu_table(otu_mat, taxa_are_rows = TRUE)
+
+  ## Get the Taxa matrix
+  tax_matrix <- otu_table |>
+    select(OTU, Kingdom, Phylum, Class, Order, Family, Genus, Species) |>
+    tibble::column_to_rownames("OTU") |>
+    as.matrix()
+
+  TAX <- tax_table(tax_matrix)
+
+  PHYLOSEQ <- phyloseq(OTU, TAX)
+  return(PHYLOSEQ)
+}
+
+nano_pq_sintax_euk <- get_pq(nano_otu_sintax_euk)
+pacbio_pq_sintax_euk <- get_pq(pacbio_otu_sintax_euk)
+ill_pq_sintax_euk <- get_pq(ill_otu_sintax_euk)
+
+
+FUNGAL_TRAITS_TABLE <- "~/Dext2/StageCRBE/Database/traitsTable/FUNGALT_DB_MROY041125.csv"
+
+nano_pq_sintax_euk_clean <- gna_verifier_pq(
+  nano_pq_sintax_euk,
+  data_sources = 210
+)
+# ✔ GNA verification summary:
+# • Total taxa in phyloseq: 18876
+# • Taxa submitted for verification: 13661
+# • Genus-level only taxa: 11267
+# • Total matches found: 1225
+# • Synonyms: 93 (including 6 uninomial)
+# • Accepted names: 1132 (including 671 uninomial)
+# ℹ 671 uninomial accepted name(s) have `currentCanonicalSimple` set to
+#   "NA" (`species_only` = TRUE)
+pacbio_pq_sintax_euk_clean <- gna_verifier_pq(
+  pacbio_pq_sintax_euk,
+  data_sources = 210
+)
+# ✔ GNA verification summary:
+# • Total taxa in phyloseq: 12604
+# • Taxa submitted for verification: 8059
+# • Genus-level only taxa: 5539
+# • Total matches found: 1705
+# • Synonyms: 121 (including 8 uninomial)
+# • Accepted names: 1584 (including 856 uninomial)
+# ℹ 856 uninomial accepted name(s) have `currentCanonicalSimple` set to "NA"
+#   (`species_only` = TRUE)
+ill_pq_sintax_euk_clean <- gna_verifier_pq(
+  ill_pq_sintax_euk,
+  data_sources = 210
+)
+# ✔ GNA verification summary:
+# • Total taxa in phyloseq: 39698
+# • Taxa submitted for verification: 26923
+# • Genus-level only taxa: 20981
+# • Total matches found: 2729
+# • Synonyms: 222 (including 14 uninomial)
+# • Accepted names: 2507 (including 1309 uninomial)
+# ℹ 1309 uninomial accepted name(s) have `currentCanonicalSimple` set to "NA"
+#   (`species_only` = TRUE)
+
+nano_traits_sintax_euk <- fungal_traits_guilds(
+  nano_pq_sintax_euk_clean,
+  fungal_traits_file = FUNGAL_TRAITS_TABLE,
+  ft_taxonomic_rank = "genusEpithet",
+  ft_csv_rank = "GENUS",
+  ft_sep = ";",
+  ft_col_prefix = "ft_",
+  fg_tax_levels = c(
+    "Kingdom",
+    "Phylum",
+    "Class",
+    "Order",
+    "Family",
+    "Genus",
+    "Species"
+  ),
+  fg_col_prefix = "fg_",
+  db_url = "http://www.stbates.org/funguild_db_2.php",
+  add_consensus = TRUE,
+  consensus_col_prefix = "cons_",
+  add_to_phyloseq = TRUE,
+  verbose = TRUE
+)
+pacbio_traits_sintax_euk <- fungal_traits_guilds(
+  pacbio_pq_sintax_euk_clean,
+  fungal_traits_file = FUNGAL_TRAITS_TABLE,
+  ft_taxonomic_rank = "genusEpithet",
+  ft_csv_rank = "GENUS",
+  ft_sep = ";",
+  ft_col_prefix = "ft_",
+  fg_tax_levels = c(
+    "Kingdom",
+    "Phylum",
+    "Class",
+    "Order",
+    "Family",
+    "Genus",
+    "Species"
+  ),
+  fg_col_prefix = "fg_",
+  db_url = "http://www.stbates.org/funguild_db_2.php",
+  add_consensus = TRUE,
+  consensus_col_prefix = "cons_",
+  add_to_phyloseq = TRUE,
+  verbose = TRUE
+)
+ill_traits_sintax_euk <- fungal_traits_guilds(
+  ill_pq_sintax_euk_clean,
+  fungal_traits_file = FUNGAL_TRAITS_TABLE,
+  ft_taxonomic_rank = "genusEpithet",
+  ft_csv_rank = "GENUS",
+  ft_sep = ";",
+  ft_col_prefix = "ft_",
+  fg_tax_levels = c(
+    "Kingdom",
+    "Phylum",
+    "Class",
+    "Order",
+    "Family",
+    "Genus",
+    "Species"
+  ),
+  fg_col_prefix = "fg_",
+  db_url = "http://www.stbates.org/funguild_db_2.php",
+  add_consensus = TRUE,
+  consensus_col_prefix = "cons_",
+  add_to_phyloseq = TRUE,
+  verbose = TRUE
+)
+
+nano_traits_sintax_euk <- add_trophicMode_ft(nano_traits_sintax_euk)
+
+pacbio_traits_sintax_euk <- add_trophicMode_ft(pacbio_traits_sintax_euk)
+ill_traits_sintax_euk <- add_trophicMode_ft(ill_traits_sintax_euk)
+# Save the phyloseq object
+write_pq(
+  nano_traits_sintax_euk,
+  path = "~/Dext2/StageCRBE/results/Nanopore/PQ/nano_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+write_pq(
+  pacbio_traits_sintax_euk,
+  path = "~/Dext2/StageCRBE/results/PacBio/PQ/pacbio_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+write_pq(
+  ill_traits_sintax_euk,
+  path = "~/Dext2/StageCRBE/results/Illumina/PQ/ill_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+write_pq(
+  nano_traits_sintax_euk,
+  path = "~/Dext2/StageCRBE/results/Nanopore/PQ/nano_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+pacbio_traits_sintax_euk <- read_pq_corr(
+  path = "~/Dext2/StageCRBE/results/PacBio/PQ/pacbio_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+write_pq(
+  ill_traits_sintax_euk,
+  path = "~/Dext2/StageCRBE/results/Illumina/PQ/ill_sintax_euk_FungalTraits_enhanced_FunGuild"
+)
+
+
+# This function plots the abundance of each trophicMode in each samples of a melted phyloseq object
+plot_mean_trophic_abundance <- function(
+  phyloseq_list,
+  troph_col = "fg_trophicMode",
+  title = "Mean trophic abundance accross samples by method"
+) {
+  # here impa_dfr allows to get the indexes of the phyloseq objects in the list, then map applies the function to all elements and _dfr allows to use rbind at the end to combine all dataframes at the end
+  combined <- purrr::imap_dfr(phyloseq_list, function(pq, group_pq) {
+    otu <- as.matrix(otu_table(pq))
+    tax <- as.data.frame(tax_table(pq))
+
+    troph <- tax[[troph_col]]
+    rm(tax)
+    gc()
+
+    cat("Replacing NA by \"unknown\"\n")
+    troph[is.na(
+      troph
+    )] <- "Unknown"
+
+    cat("Trimming spaces\n")
+    # Trim spaces around and inside the column
+    troph <- str_squish(troph)
+
+    #
+    troph <- troph |>
+      stri_split_fixed("-") |> # liste de vecteurs
+      purrr::map_chr(~ paste(sort(unique(stri_trim_both(.x))), collapse = "-"))
+
+    troph_mat <- rowsum(otu, group = troph)
+
+    rm(otu)
+    gc()
+    rm(troph)
+    gc()
+
+    trophic_mean <- data.frame(
+      MeanRelAbundance = rowMeans(troph_mat, na.rm = TRUE),
+      Group = group_pq
+    )
+    trophic_mean[[troph_col]] <- rownames(troph_mat)
+
+    return(trophic_mean)
+  })
+
+  cat("Set the color of unknown to grey\n")
+  trophs <- unique(combined[[troph_col]])
+  others <- trophs[trophs != "Unknown"]
+
+  cols <- setNames(
+    scales::pal_viridis(option = "turbo")(length(others)),
+    others
+  )
+
+  # Change color of Unknown to grey
+  cols <- c(cols, "Unknown" = "grey70")
+
+  cat("Plotting graph\n")
+  p <- ggplot(
+    combined,
+    aes(x = Group, y = MeanRelAbundance, fill = .data[[troph_col]])
+  ) +
+    # here it's important to put identity so the bars correspond to the relative abundance
+    # in each samples and not the number of different abundance found in each sample
+    geom_bar(stat = "identity") +
+    scale_fill_manual(
+      values = cols
+    ) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(
+      title = title,
+      x = NULL,
+      y = "Abondance relative",
+      fill = ""
+    ) +
+    theme_idest() +
+    theme(
+      legend.position = "right",
+      legend.text = element_text(size = 13), # Taille du texte
+      legend.title = element_text(size = 14, face = "bold"), # Titre légende
+      legend.key.size = unit(1.2, "cm") # Taille des carrés de couleur
+    )
+
+  return(p)
+}
+
+plot_mean_all_trophic_abundance <- function(
+  col_list,
+  pq,
+  title = "Mean trophic abundance accross samples by database"
+) {
+  # here impa_dfr allows to get the indexes of the phyloseq objects in the list, then map applies the function to all elements and _dfr allows to use rbind at the end to combine all dataframes at the end
+  combined <- purrr::imap_dfr(col_list, function(troph_col, name_col) {
+    otu <- as.matrix(otu_table(pq))
+    tax <- as.data.frame(tax_table(pq))
+
+    troph <- tax[[troph_col]]
+    rm(tax)
+    gc()
+
+    cat("Replacing NA by \"unknown\"\n")
+    troph[is.na(
+      troph
+    )] <- "Unknown"
+
+    cat("Trimming spaces\n")
+    # Trim spaces around and inside the column
+    troph <- str_squish(troph)
+
+    #
+    troph <- troph |>
+      stri_split_fixed("-") |> # liste de vecteurs
+      purrr::map_chr(~ paste(sort(unique(stri_trim_both(.x))), collapse = "-"))
+
+    troph_mat <- rowsum(otu, group = troph)
+
+    rm(otu)
+    gc()
+    rm(troph)
+    gc()
+
+    trophic_mean <- data.frame(
+      MeanRelAbundance = rowMeans(troph_mat, na.rm = TRUE),
+      TrophicMode = rownames(troph_mat),
+      Group = name_col
+    )
+
+    return(trophic_mean)
+  })
+
+  cat("Set the color of unknown to grey\n")
+  trophs <- unique(combined$TrophicMode)
+  others <- trophs[trophs != "Unknown"]
+
+  cols <- setNames(
+    scales::pal_viridis(option = "turbo")(length(others)),
+    others
+  )
+
+  # Change color of Unknown to grey
+  cols <- c(cols, "Unknown" = "grey70")
+
+  cat("Plotting graph\n")
+  p <- ggplot(
+    combined,
+    aes(x = Group, y = MeanRelAbundance, fill = TrophicMode)
+  ) +
+    # here it's important to put identity so the bars correspond to the relative abundance
+    # in each samples and not the number of different abundance found in each sample
+    geom_bar(stat = "identity") +
+    scale_fill_manual(
+      values = cols
+    ) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    labs(
+      title = str_wrap(title, width = 50),
+      x = NULL,
+      y = "Abondance relative",
+      fill = ""
+    ) +
+    theme_idest(base_size = 16) +
+    theme(
+      legend.position = "right",
+      legend.text = element_text(size = 13), # Taille du texte
+      legend.title = element_text(size = 14, face = "bold"), # Titre légende
+      legend.key.size = unit(1.2, "cm") # Taille des carrés de couleur
+    )
+
+  return(p)
+}
+col_list <- list(
+  "FunGuild" = "fg_trophicMode",
+  "FungalTraits" = "ft_trophicMode",
+  "Consensus" = "cons_trophicMode"
+)
+plot_mean_all_trophic_abundance(
+  col_list,
+  pacbio_traits_sintax_euk,
+  title = "Abondance relative moyenne des modes trophiques par base de données - PacBio - SINTAX - EUKARYOME"
+)
+ggsave(
+  "~/Dext2/StageCRBE/results/fig/troph_rel_col_pacbio_sintax_euk.png",
+  width = 10,
+  height = 8
+)
+ggsave(
+  "~/Dext2/StageCRBE/results/fig/troph_rel_col_pacbio_sintax_euk.pdf",
+  width = 10,
+  height = 8
+)
+test <- as.data.frame(tax_table(nano_traits_sintax_euk))
+
+plot_mean_trophic_abundance(
+  pq_list,
+  title = "Abondance relative moyenne des modes trophiques par technologies - FunGuild"
+)
+
+# ramp <- scales::colour_ramp(c("darkred","darkgreen","darkblue"))
+# scales::show_col(c(ramp(seq(0,1, length = 7)),"grey70"))
+ggsave(
+  "~/Dext2/StageCRBE/results/fig/troph_rel_techno_fg_sintax_euk.png",
+  width = 10,
+  height = 8
+)
+
+
+plot_mean_trophic_abundance(
+  pq_list,
+  "ft_trophicMode",
+  title = "Abondance relative moyenne des modes trophiques par technologies - FungalTrait"
+)
+
+# ramp <- scales::colour_ramp(c("darkred","darkgreen","darkblue"))
+# scales::show_col(c(ramp(seq(0,1, length = 7)),"grey70"))
+ggsave(
+  "~/Dext2/StageCRBE/results/fig/troph_rel_techno_ft_sintax_euk.png",
+  width = 10,
+  height = 8
+)
+
+plot_mean_trophic_abundance(
+  pq_list,
+  "cons_trophicMode",
+  title = "Abondance relative moyenne des modes trophiques par technologies - Consensus"
+)
+
+# ramp <- scales::colour_ramp(c("darkred","darkgreen","darkblue"))
+# scales::show_col(c(ramp(seq(0,1, length = 7)),"grey70"))
+ggsave(
+  "~/Dext2/StageCRBE/results/fig/troph_rel_techno_cons_sintax_euk.png",
+  width = 10,
+  height = 8
 )
