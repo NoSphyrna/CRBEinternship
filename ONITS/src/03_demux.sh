@@ -8,33 +8,14 @@
 
 # For Cutadapt limiting factor is CPUs not ram
 
-#Load modules
-module purge
-
-module load bioinfo/Cutadapt/5.0
-module load devel/Miniconda/Miniconda3
-
-#default
-merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
-stats="$HOME/work/Nanopore/run1/stats/"
-pre_demux="$HOME/work/Nanopore/run1/pre_demux/"
-demux="$HOME/work/Nanopore/run1/demux/"
-linked_adapters="$HOME/work/Nanopore/run1/adapters/linked_adapters.fasta"
-biopy="$HOME/work/conda/envs/biopy"
-#Charge config file (a liitle trick to make sure it's form the same directory as the script)
-source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
-
-# we activate the conda environment
-# TODO :Check if conda env is here and create it if not
-source activate "$biopy"
-# Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
-
-RESUME=false
+# Get the config file as input
 usage() {
-	echo "Usage: $0 [-h][-r]"
+	echo "Usage: $0 [-h][-r] <config_file>"
 	echo "	-r skip the cutadapt trimming go directly to move table trimming"
 	exit 1
 }
+
+RESUME=false
 
 while getopts "rh" opt; do
 	case $opt in
@@ -50,6 +31,37 @@ while getopts "rh" opt; do
 		;;
 	esac
 done
+
+if [ $# != 1 ]; then
+	echo "Invalid number of arguments : $#"
+	usage
+fi
+
+if [ ! -f "$1" ] || ! CONFIG="$1"; then
+	echo "Invalid config file : $1"
+	usage
+fi
+
+#Load modules
+module purge
+
+module load bioinfo/Cutadapt/5.0
+module load devel/Miniconda/Miniconda3
+
+#default
+merge_fastq="$HOME/work/Nanopore/run1/basecalled_sup/merged.fastq"
+stats="$HOME/work/Nanopore/run1/stats/"
+pre_demux="$HOME/work/Nanopore/run1/pre_demux/"
+demux="$HOME/work/Nanopore/run1/demux/"
+linked_adapters="$HOME/work/Nanopore/run1/adapters/linked_adapters.fasta"
+biopy="$HOME/work/conda/envs/biopy"
+#Charge config file (a liitle trick to make sure it's form the same directory as the script)
+source "$CONFIG"
+
+# we activate the conda environment
+# TODO :Check if conda env is here and create it if not
+source activate "$biopy"
+# Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
 
 if [ ! -f "$merge_fastq" ]; then
 	echo "Invalid argument: $merge_fastq isn't a file"
@@ -98,4 +110,6 @@ if [ ! $RESUME ]; then
 		"$merge_fastq" >"$stats/demux_cutadapt.txt"
 fi
 # After we need to trimm move tables if they exist :
-python "$SLURM_SUBMIT_DIR/../Python_scripts/demux_moves.py" "$stats/info.tsv" "$pre_demux" "$demux"
+python "$SLURM_SUBMIT_DIR/../helpers/demux_moves.py" "$stats/info.tsv" "$pre_demux" "$demux"
+
+echo -e "Demultplexing\t$(find "$demux" -name "*.fastq" -exec wc -l {} + | grep -v ' total$' | awk -F\t '{sum+=$1} END {print int(sum/4)}')" >>"$stats/nb_reads.tsv"

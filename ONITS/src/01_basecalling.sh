@@ -1,12 +1,40 @@
 #!/bin/bash
-#SBATCH -J run_basecalling
-#SBATCH -o /home/%u/work/job_logs/dorado/output_%j.out
-#SBATCH -e /home/%u/work/job_logs/dorado/error_%j.out
+#SBATCH -J ONITS_basecalling
+#SBATCH -o /home/%u/work/job_logs/basecalling/output_%j.out
+#SBATCH -e /home/%u/work/job_logs/basecalling/error_%j.out
 #SBATCH --partition=gpuq
 #SBATCH --gres=gpu:nvidia_a100:1
 #SBATCH -t 24:00:00
 #SBATCH --mem=16G
 #SBATCH -c 8
+
+# Get the config file as input
+usage() {
+	echo "Usage: $0 [-h] <config_file>"
+	exit 1
+}
+
+while getopts "h" opt; do
+	case $opt in
+	h)
+		usage
+		;;
+	\?)
+		echo "Invalid option" >&2
+		usage
+		;;
+	esac
+done
+
+if [ $# != 1 ]; then
+	echo "Invalid number of arguments : $#"
+	usage
+fi
+
+if [ ! -f "$1" ] || ! CONFIG="$1"; then
+	echo "Invalid config file : $1"
+	usage
+fi
 
 #Load modules
 module purge
@@ -22,8 +50,8 @@ model_name="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 model="$model_dir/$model_name"
 kit_name="SQK-NBD114-24"
 
-#Charge config file (a liitle trick to make sure it's form the same directory as the script)
-source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
+#Charge config file
+source "$CONFIG"
 
 # Checks for directories and files
 

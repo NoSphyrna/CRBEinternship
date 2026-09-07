@@ -6,6 +6,34 @@
 #SBATCH --mem=64G
 #SBATCH -c 32
 
+# Get the config file as input
+usage() {
+	echo "Usage: $0 [-h] <config_file>"
+	exit 1
+}
+
+while getopts "h" opt; do
+	case $opt in
+	h)
+		usage
+		;;
+	\?)
+		echo "Invalid option" >&2
+		usage
+		;;
+	esac
+done
+
+if [ $# != 1 ]; then
+	echo "Invalid number of arguments : $#"
+	usage
+fi
+
+if [ ! -f "$1" ] || ! CONFIG="$1"; then
+	echo "Invalid config file : $1"
+	usage
+fi
+
 #Load modules
 module purge
 
@@ -15,6 +43,7 @@ module load bioinfo/VSEARCH/2.29.3
 module load compilers/gcc/15.1.0
 
 #default parameters
+id_match=0.95
 working_dir="$HOME/work/Nanopore/"
 run="$working_dir/run1/"
 
@@ -28,7 +57,7 @@ OTU_SEQ="$mumu_output/OTU_seqs.fasta"
 OTU_TABLE_MUMU="$mumu_output/OTU_table_mumu.tsv"
 MATCH_LIST="$mumu_output/matches.list"
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
-source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
+source "$CONFIG"
 
 # Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
 
@@ -58,7 +87,7 @@ vsearch \
 	--usearch_global "$OTU_SEQ" \
 	--db "$OTU_SEQ" \
 	--self \
-	--id 0.95 \
+	--id $id_match \
 	--iddef 1 \
 	--userfields query+target+id \
 	--maxaccepts 0 \
@@ -68,13 +97,17 @@ vsearch \
 	--userout - |
 	sed -r 's/;size=[0-9]+;//g' >"$MATCH_LIST"
 
+MATCH=$(awk "BEGIN {print $id_match * 100}")
 # And then create the curated OTU_table with mumu
 mumu \
 	--otu_table "$OTU_TABLE_form" \
 	--match_list "$MATCH_LIST" \
 	--log "$mumu_output/MUMU_merging_stats.txt" \
 	--new_otu_table "$OTU_TABLE_MUMU" \
-	--minimum_match 95 \
+	--minimum_match $MATCH \
 	--minimum_ratio 1 \
 	--minimum_ratio_type "min" \
 	--minimum_relative_cooccurence 0.90
+
+# # Count remaing reads
+# echo -e "MUMU\t$(awk -F'\t' 'NR>1 {for(i=2;i<=NF;i++) sum+=$i} END {print sum}' "$OTU_TABLE_MUMU")" >>"$stats/nb_reads.tsv"

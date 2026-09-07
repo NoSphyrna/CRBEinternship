@@ -6,6 +6,34 @@
 #SBATCH --mem=64G
 #SBATCH -c 32
 
+# Get the config file as input
+usage() {
+	echo "Usage: $0 [-h] <config_file>"
+	exit 1
+}
+
+while getopts "h" opt; do
+	case $opt in
+	h)
+		usage
+		;;
+	\?)
+		echo "Invalid option" >&2
+		usage
+		;;
+	esac
+done
+
+if [ $# != 1 ]; then
+	echo "Invalid number of arguments : $#"
+	usage
+fi
+
+if [ ! -f "$1" ] || ! CONFIG="$1"; then
+	echo "Invalid config file : $1"
+	usage
+fi
+
 #Load modules
 module purge
 
@@ -19,7 +47,7 @@ stats="$run/stats/"
 proname_dir="$working_dir/proname/run1/"
 proname="$proname_dir/../proname_v2.3.0-amd64.sif"
 #Charge config file (a litle trick to make sure it's form the same directory as the script)
-source "$SLURM_SUBMIT_DIR/config_nanopore.cfg"
+source "$CONFIG"
 
 # Checkings (particularly import to do this because Cutadapt doesn't handle well missing directories)
 #
