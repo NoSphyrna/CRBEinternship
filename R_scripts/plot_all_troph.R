@@ -482,20 +482,28 @@ ggsave(
 
 ## map
 
+# We extract the file from the write_pq function (already verified and with the tax_gbif_cor_pq function applied)
 pq_counrty <- read_pq_corr(
   "occur_pq/pq_Tedersoo_ITS_full_vsearch_gbif_occ_by_country"
 )
+
+# First get the otu_table and tax table from the phyloseq object
 taxa <- as.data.frame(tax_table(pq_counrty))
 otu_mat <- as.matrix(otu_table(pq_counrty))
 
-otu_mat <- otu_mat[, "C1"]
 head(otu_mat)
 
+# Here we select the column of the sample we want to apply the function
+# WARING: here otu_mat is supposed to be relative occurence
+otu_mat <- otu_mat[, "C1", drop = FALSE]
+head(otu_mat)
+
+# We transpose the otu_mat
 sample_mat <- t(otu_mat)
 head(sample_mat)
 str(sample_mat)
 
-# Select only country datas and get the relative occurance found
+# Select only country datas and get the relative occurance found # TODO: get a vector here
 occ_mat <- taxa |>
   select(
     -c(
@@ -527,16 +535,23 @@ occ_mat <- taxa |>
   ) |>
   as.matrix()
 
+# We calculate relative occurences by country for each taxa
 rel_occ_mat <- sweep(occ_mat, 1, occ_mat[, "rowsum"], "/")
 rel_occ_mat <- rel_occ_mat[, colnames(rel_occ_mat) != "rowsum"]
 
 head(rel_occ_mat)
+head(sample_mat)
 
+# we do a mtrice product to get the sum relative abundance of each taxa mutiplied by relative occurences of each taxa by country for the chosen sample (this is why we need to transpose before)
+# WARNING, here sample_mat is supposed to be relative abundances
 rel_occ_sample <- sample_mat %*% rel_occ_mat
+head(rel_occ_sample)
 
+# We transpose it to have countries as rows and the column being the name of the sample
 rel_occ_sample <- as.data.frame(t(rel_occ_sample))
 head(rel_occ_sample)
 
+# Now we use sf package to get the coordinate of each countries
 world_sf <- ne_countries(scale = "medium", returnclass = "sf")
 
 data(countryref)
@@ -548,10 +563,12 @@ centroides <- countryref |>
 
 centroides
 
+# We then join the centroides to each countries (rows)
 df <- data.frame(iso2 = row.names(rel_occ_sample), valeur = rel_occ_sample) |>
   left_join(centroides, by = "iso2")
 
 head(df)
+# Now we need
 ggplot() +
   geom_sf(
     data = world_sf,
@@ -563,7 +580,7 @@ ggplot() +
     data = df,
     aes(x = lon, y = lat, size = C1, colour = C1),
     alpha = 0.75
-  ) +
+  ) + # here we set size and coulour of points with the indice with the name beaing the sample
   scale_size_continuous(
     name = "",
     range = c(4, 20)
@@ -575,15 +592,16 @@ ggplot() +
     title = "Occurrence relative pondérée par la présence dans l'échantillon"
   ) +
   theme(
-    legend.text = element_text(size = 13), # Taille labels légende
-    legend.title = element_text(size = 14), # Taille titre légende
-    legend.key.size = unit(1.5, "cm"), # Taille des clés
-    legend.spacing.y = unit(0.4, "cm") # Espacement entre entrées
+    legend.text = element_text(size = 13), # Size of legen labels
+    legend.title = element_text(size = 14), # Size of title legend
+    legend.key.size = unit(1.5, "cm"), # Size of keys
+    legend.spacing.y = unit(0.4, "cm") # Spacing between entries
   ) +
   guides(
     size = guide_legend(reverse = TRUE)
-  ) # Valeur haute en haut
+  ) # We set the higher value on top
 
+# we then save the fig
 ggsave(
   "occurrence_map_C1_tedersoo.png",
   width = 20,
