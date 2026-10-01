@@ -51,7 +51,7 @@ library(MiscMetabar)
 library(stringr)
 
 
-# ============= Utility Functoins ==================#
+# ============= Utility Functions ==================#
 
 # Expand taxa columns
 # Corrections :

@@ -6,16 +6,20 @@
 # modify it, a good practice is to create a copy and modify it.
 # Tips : Create multiple config files for each of your tests/runs
 
+# Keep this line as it gets the path of this file no matter from where
+# it has called from
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
 # ============================= Options ============================== #
 # This part contains the options of the options for each part of the
 # pipeline that you might most likely want to change
 
 # Working directory
 WORKING_DIR="$HOME/work/ONITS/"
-RUN_NAME="run1"
+RUN_NAME="test"
 
 #Inputs
-POD5="/home/bperez/save/MITI/Nanopore_run1/"
+POD5="$SCRIPT_DIR/../tests/test_pod5/"
 
 #Databases
 databases="$HOME/work/database"
@@ -29,7 +33,7 @@ model_name="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 # demux ?
 DEMUX_b="True"
 # ITS extraction ?
-ITSXRUST_b="True"
+ITSXRUST_b="False"
 # Primers
 primer_fwd="GTACACACCGCCCGTCG"
 primer_rev="CGCCTSCSCTTANTDATATGC"

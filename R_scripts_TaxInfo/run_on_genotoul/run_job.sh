@@ -23,8 +23,8 @@ plot_range="$HOME/work/plots/range"
 traits_table="$HOME/save/traitsTable/FUNGALT_DB_MROY041125.csv"
 
 #Charge config file (a liitle trick to make sure it's form the same directory as the script)
-R_SCRIPTS="$SLURM_SUBMIT_DIR/../R_scripts"
-source "$SLURM_SUBMIT_DIR/config.cfg"
+R_SCRIPTS="$SLURM_SUBMIT_DIR"
+source "$SLURM_SUBMIT_DIR/config.sh"
 
 if [ "$#" -lt 1 ]; then
 	Rscript "$R_SCRIPTS"/verify_gna_from_clean_data.R "$input_clean" "$pq_verify"

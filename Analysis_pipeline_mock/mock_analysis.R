@@ -348,6 +348,16 @@ colnames(genus_species_ill) <- str_replace(
   "Mock([0-9]+)",
   "Mock\\1_ill"
 )
+colnames(genus_species_pacbio) <- str_replace(
+  colnames(genus_species_pacbio),
+  "n_otu",
+  "n_otu_pac"
+)
+colnames(genus_species_ill) <- str_replace(
+  colnames(genus_species_ill),
+  "n_otu",
+  "n_otu_ill"
+)
 genus_species_merged_pacbio <- full_join(
   genus_species_pacbio,
   genus_species_compo,
